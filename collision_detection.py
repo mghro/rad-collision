@@ -1,17 +1,18 @@
-# Erik's example script
+# Fernando Hueso-Gonzalez
+# Massachusetts General Hospital and Harvard Medical School
 #
-# Illustrates how you can load STL geometries into RayStation
+# Illustrates how you can load a 3D model of the LINAC into RayStation for collision detection
 
 from connect import *
 
-fileName = 'C:\\file.STL'
+fileName = '\\\\Client\\D$\\STL\\RotatingHeads.stl'
 
 case = get_current('Case')
 examinationName = 'CT 1'
 
 # create ROI
-roiName = 'ImportedModel'
-roiColor = 'Red'
+roiName = 'ImportedModel2'
+roiColor = 'Blue'
 roiType = 'Support'
 case.PatientModel.CreateRoi(Name=roiName, Color=roiColor, Type=roiType)
 
