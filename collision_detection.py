@@ -11,6 +11,7 @@
 # z: from Inferior to Superior
 #
 # This is independent on the patient orientation (HFS, FFS, HFP, FFP).
+# See http://dosimetry.dotdecimal.com/doku.php?id=dosimetry:userguide:proton_delivery_system_conventions
 #
 # In the transverse 2D viewer of RayStation, for FFS patient, the coordinate system looks as follows:
 # x <------|
@@ -90,6 +91,7 @@ machines = {agility.name : agility, trilogy.name : trilogy, truebeam.name: trueb
 
 from math import cos, sin, radians, degrees, hypot, atan2
 import sys
+import ScriptClient
 
 from connect import *
 
@@ -97,8 +99,9 @@ import clr
 clr.AddReference("System.Windows.Forms")
 clr.AddReference("System.Drawing")
 
-from System.Windows.Forms import Application, Form, Label, ComboBox, Button, TextBox, TrackBar
+from System.Windows.Forms import Application, Form, Label, ComboBox, Button, TextBox, TrackBar, FormStartPosition
 from System.Drawing import Point, Size
+
 
 # Define Forms class that will prompt the user to select a
 # machine for creating a 3D model around isocenter
@@ -223,88 +226,92 @@ class SelectAngleForm(Form):
     # Close the form
     self.Close()
 
-form = SelectMachineForm()
-Application.Run(form)
-mname = form.mach_name
 
-case = get_current('Case')
-examination = get_current('Examination')
-machine = machines[mname]
-structure_set = case.PatientModel.StructureSets[examination.Name]
-orientation = examination.PatientPosition
+def import_models():
+  form = SelectMachineForm()
+  Application.Run(form)
+  mname = form.mach_name
 
-# A rotation of the 3D model is needed to match the CT orientation depending on PatientPosition attribute
-gantry_angle_offset = {'HFS':180, 'FFS':180,'HFP':0  , 'FFP': 0}
-couch_angle_offset =  {'HFS':180, 'FFS':  0,'HFP':180, 'FFP': 0}
-gantry_direction =    {'HFS': -1, 'FFS': -1,'HFP':-1 , 'FFP':-1}
-couch_direction =     {'HFS': -1, 'FFS': -1,'HFP': 1 , 'FFP': 1}
-g0 = radians(gantry_angle_offset[orientation])
-c0 = radians(couch_angle_offset[orientation])
-gs = gantry_direction[orientation]
-cs = couch_direction[orientation]
+  case = get_current('Case')
+  examination = get_current('Examination')
+  machine = machines[mname]
+  structure_set = case.PatientModel.StructureSets[examination.Name]
+  orientation = examination.PatientPosition
 
-poi_type = 'Isocenter'
-poi_lst = [r.Type for r in case.PatientModel.PointsOfInterest]
-#check if POI already defined, if not, wait until defined, then continue
-while poi_type not in poi_lst:
-  await_user_input('Please click OK and define an "'+poi_type+'" POI, then click on Play Script')
+  # A rotation of the 3D model is needed to match the CT orientation depending on PatientPosition attribute
+  gantry_angle_offset = {'HFS':180, 'FFS':180,'HFP':0  , 'FFP': 0}
+  couch_angle_offset =  {'HFS':180, 'FFS':  0,'HFP':180, 'FFP': 0}
+  gantry_direction =    {'HFS': -1, 'FFS': -1,'HFP':-1 , 'FFP':-1}
+  couch_direction =     {'HFS': -1, 'FFS': -1,'HFP': 1 , 'FFP': 1}
+  g0 = radians(gantry_angle_offset[orientation])
+  c0 = radians(couch_angle_offset[orientation])
+  gs = gantry_direction[orientation]
+  cs = couch_direction[orientation]
+
+  poi_type = 'Isocenter'
   poi_lst = [r.Type for r in case.PatientModel.PointsOfInterest]
+  #check if POI already defined, if not, wait until defined, then continue
+  while poi_type not in poi_lst:
+    await_user_input('Please click OK and define an "'+poi_type+'" POI, then click on Play Script')
+    poi_lst = [r.Type for r in case.PatientModel.PointsOfInterest]
 
-iso = structure_set.PoiGeometries[poi_lst.index(poi_type)].Point
+  iso = structure_set.PoiGeometries[poi_lst.index(poi_type)].Point
 
-aform = SelectAngleForm()
-Application.Run(aform)
-gangle = radians(float(aform.beam_angle))
-cangle = radians(float(aform.couch_angle))
-if gangle < 0:
-  sys.exit()
-
-for part in machine.parts:
-  # create ROI
-  roiName = part.name
-  roiColor = part.color
-  roiType = 'Support'
-  fileName = machine.path+part.file
-  case.PatientModel.CreateRoi(Name=roiName, Color=roiColor, Type=roiType)
-  # import mesh from file
-  geo = case.PatientModel.StructureSets[examination.Name].RoiGeometries[roiName]
-  if part.name=='Nozzle':
-    a = gs*(gangle+g0)
-    b = cs*(cangle+c0)
-    geo.ImportRoiGeometryFromSTL(FileName=fileName, UnitInFile='Millimeter',
-         TransformationMatrix={'M11':cos(a)*cos(b), 'M12':-sin(a)*cos(b), 'M13':-sin(b), 'M14':iso.x,
-                               'M21':sin(a)       , 'M22': cos(a)       , 'M23': 0     , 'M24':iso.y,
-                               'M31':cos(a)*sin(b), 'M32':-sin(a)*sin(b), 'M33': cos(b), 'M34':iso.z,
-                               'M41':0            , 'M42':0             , 'M43': 0     , 'M44':1          })
-
-await_user_input('Import finished. You can check your model now. If you want to change the beam angle, click on Resume again. If you want to exit and remove the ROIs, introduce a negative beam angle.')
-
-while gangle >= 0:
-  oldgangle = gangle
-  oldcangle = cangle
   aform = SelectAngleForm()
-  #Set previous angle in dialog
-  aform.tboxB.Text = str(int(round(degrees(oldgangle))))
-  aform.tbB.Value = int(aform.tboxB.Text)
-  aform.tboxC.Text = str(int(round(degrees(oldcangle))))
-  aform.tbC.Value = int(aform.tboxC.Text)
   Application.Run(aform)
   gangle = radians(float(aform.beam_angle))
   cangle = radians(float(aform.couch_angle))
-  if gangle>=0:
-    for part in machine.parts:
-      if part.name=='Nozzle':
-        b = -cs*(oldcangle+c0)
-        b2 = cs*(cangle+c0)
-        d = gs*(gangle - oldgangle) #g0 cancels
-        case.PatientModel.RegionsOfInterest[part.name].TransformROI3D(Examination=examination, TransformationMatrix= {
-          'M11':cos(d)*cos(b)*cos(b2)-sin(b)*sin(b2), 'M12':-sin(d)*cos(b2), 'M13':-cos(d)*sin(b)*cos(b2)-cos(b)*sin(b2), 'M14':iso.x-iso.x*(cos(d)*cos(b)*cos(b2)-sin(b)*sin(b2))+iso.y*sin(d)*cos(b2)+iso.z*(cos(d)*sin(b)*cos(b2)+cos(b)*sin(b2)),
-          'M21':sin(d)*cos(b)                       , 'M22': cos(d)        , 'M23':-sin(d)*sin(b)                       , 'M24':iso.y-iso.x* sin(d)*cos(b)                        -iso.y*cos(d)        +iso.z* sin(d)*sin(b)                        ,
-          'M31':cos(d)*cos(b)*sin(b2)+sin(b)*cos(b2), 'M32':-sin(d)*sin(b2), 'M33':-cos(d)*sin(b)*sin(b2)+cos(b)*cos(b2), 'M34':iso.z-iso.x*(cos(d)*cos(b)*sin(b2)+sin(b)*cos(b2))+iso.y*sin(d)*sin(b2)+iso.z*(cos(d)*sin(b)*sin(b2)-cos(b)*cos(b2)),
-          'M41':0                                   , 'M42': 0             , 'M43': 0                                   , 'M44':1                                                                                                                   })
-    await_user_input('Transformation finished. If you want to change the beam angle, click on Resume Script again. If you want to remove the ROIs, introduce a negative beam angle.')
+  if gangle < 0:
+    sys.exit()
 
-for part in machine.parts:
-  # delete ROI
-  roiName = part.name
-  case.PatientModel.RegionsOfInterest[roiName].DeleteRoi()
+  for part in machine.parts:
+    # create ROI
+    roiName = part.name
+    roiColor = part.color
+    roiType = 'Support'
+    fileName = machine.path+part.file
+    case.PatientModel.CreateRoi(Name=roiName, Color=roiColor, Type=roiType)
+    # import mesh from file
+    geo = case.PatientModel.StructureSets[examination.Name].RoiGeometries[roiName]
+    if part.name=='Nozzle':
+      a = gs*(gangle+g0)
+      b = cs*(cangle+c0)
+      geo.ImportRoiGeometryFromSTL(FileName=fileName, UnitInFile='Millimeter',
+           TransformationMatrix={'M11':cos(a)*cos(b), 'M12':-sin(a)*cos(b), 'M13':-sin(b), 'M14':iso.x,
+                                 'M21':sin(a)       , 'M22': cos(a)       , 'M23': 0     , 'M24':iso.y,
+                                 'M31':cos(a)*sin(b), 'M32':-sin(a)*sin(b), 'M33': cos(b), 'M34':iso.z,
+                                 'M41':0            , 'M42':0             , 'M43': 0     , 'M44':1          })
+
+  #await_user_input('Import finished. You can check your model now. If you want to change the beam angle, click on Resume again. If you want to exit and remove the ROIs, introduce a negative beam angle.')
+
+  while gangle >= 0:
+    oldgangle = gangle
+    oldcangle = cangle
+    aform = SelectAngleForm()
+    #Set previous angle in dialog
+    aform.tboxB.Text = str(int(round(degrees(oldgangle))))
+    aform.tbB.Value = int(aform.tboxB.Text)
+    aform.tboxC.Text = str(int(round(degrees(oldcangle))))
+    aform.tbC.Value = int(aform.tboxC.Text)
+    Application.Run(aform)
+    gangle = radians(float(aform.beam_angle))
+    cangle = radians(float(aform.couch_angle))
+    if gangle>=0:
+      for part in machine.parts:
+        if part.name=='Nozzle':
+          b = -cs*(oldcangle+c0)
+          b2 = cs*(cangle+c0)
+          d = gs*(gangle - oldgangle) #g0 cancels
+          case.PatientModel.RegionsOfInterest[part.name].TransformROI3D(Examination=examination, TransformationMatrix= {
+            'M11':cos(d)*cos(b)*cos(b2)-sin(b)*sin(b2), 'M12':-sin(d)*cos(b2), 'M13':-cos(d)*sin(b)*cos(b2)-cos(b)*sin(b2), 'M14':iso.x-iso.x*(cos(d)*cos(b)*cos(b2)-sin(b)*sin(b2))+iso.y*sin(d)*cos(b2)+iso.z*(cos(d)*sin(b)*cos(b2)+cos(b)*sin(b2)),
+            'M21':sin(d)*cos(b)                       , 'M22': cos(d)        , 'M23':-sin(d)*sin(b)                       , 'M24':iso.y-iso.x* sin(d)*cos(b)                        -iso.y*cos(d)        +iso.z* sin(d)*sin(b)                        ,
+            'M31':cos(d)*cos(b)*sin(b2)+sin(b)*cos(b2), 'M32':-sin(d)*sin(b2), 'M33':-cos(d)*sin(b)*sin(b2)+cos(b)*cos(b2), 'M34':iso.z-iso.x*(cos(d)*cos(b)*sin(b2)+sin(b)*cos(b2))+iso.y*sin(d)*sin(b2)+iso.z*(cos(d)*sin(b)*sin(b2)-cos(b)*cos(b2)),
+            'M41':0                                   , 'M42': 0             , 'M43': 0                                   , 'M44':1                                                                                                                   })
+      #await_user_input('Transformation finished. If you want to change the beam angle, click on Resume Script again. If you want to remove the ROIs, introduce a negative beam angle.')
+
+  for part in machine.parts:
+    # delete ROI
+    roiName = part.name
+    case.PatientModel.RegionsOfInterest[roiName].DeleteRoi()
+
+ScriptClient.AppUtil.RunInNewThread(import_models())
