@@ -1,9 +1,26 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+#
 # collision_detection.py
 #
-# Fernando Hueso-Gonzalez - fhuesogonzalez@mgh.harvard.edu
+# Fernando Hueso-González - fhuesogonzalez@mgh.harvard.edu
 # Massachusetts General Hospital and Harvard Medical School
 #
-# Loads a 3D model of a LINAC into RayStation for collision detection
+# Loads a 3D model of a radiotherapy treatment head and patient couch into RayStation for collision detection
+#
+# The 3D models are not part of the script, you need to ask your vendor to provide them as STL files, eg. under an NDA.
+# They have to be stored in a folder visible by the RayStation server. The different STL parts of the treatment head
+# must be stored within the same folder. The couch has to be stored in another folder with its corresponding subparts.
+# For example:
+# F:\\STL models\\
+#                 LINAC\\
+#                        Nozzle.stl
+#                        XrayPanel.stl
+#                 Couch\\
+#                        Hexapod.stl
+#                        HeadSupport.stl
+# If the STL files are not stored on the server but on the client side, you have to specify the path as
+# \\\\Client\\F\\STL models\\
 #
 # DICOM (RayStation) coordinates are as follows:
 # x: from Right to Left
@@ -20,29 +37,32 @@
 #          V
 #          y
 # and z completes the triad (pointing to you, reader)
-# However, it looks different for HFS orientation or any other, as they maintain the CT acquisition orientation
+# However, the 2D viewer looks different for HFS orientation or any other, as they maintain the CT acquisition orientation
 # and move instead the labels R, L, A, P, S, I.
 #
 # Let us define some rotation angles:
-# a: rotation around z axis (from x to y axis), represented by rotation matrix R_z, with R_z[row=1,column=2] = -sin(a)
-# b: rotation around y axis (from x to z axis), represented by rotation matrix R_y, with R_z[row=1,column=3] = -sin(b)
+# a: rotation around z axis (from x to y axis), represented by a classical rotation matrix R_z, with R_z[row=1,column=2] = -sin(a)
+# b: rotation around y axis (from x to z axis), represented by a classical rotation matrix R_y, with R_y[row=1,column=3] = -sin(b)
+# g: IEC DICOM gantry rotation. When couch angle is zero, in the case of FFS, it is from y to x axis (opposite sign than a).
+# c: IEC Couch support rotation. When gantry angle is zero, in the case of FFS, it is from x to z axis (same sign than b).
 #
-# g: DICOM gantry rotation (when couch angle is zero) is from y to x axis (opposite sign than a)
-# c: Couch support rotation (when gantry angle is zero) is from x to z axis (same sign than b)
+# It should be noted that the sign of the rotation angle depends on the patient orientation (FFS, etc.).
+# For each patient orientation, we define the sign (gs,cs) between gantry and couch rotation (g,c) and the respective rotation
+# about the DICOM patient axes (a,b). Also, the gantry and couch offset (g0,c0) are defined to rotate the 3D model in order
+# to match the DICOM patient axes at the particular patient orientation.
 #
-# 3D model coordinates
-# It is assumed that the origin of the STL 3D models is exactly at room isocenter.
-# Also, the orientation should be such that, when opening the STL file with Meshlab, you are looking towards the LINAC
-# as if you were standing in the treatment room in front of it (no couch support rotation),
-# and the gantry is at zero degrees.
-# You might need to cleanup your model with Meshlab via opening it, click on
-# Unify duplicated Vertices, Ok, File, Export Mesh As, .stl
-# in order to avoid an error when importing in RayStation
+# Coordinates of the 3D model
+# It is a requisite that the origin of the STL 3D models is exactly at room isocenter.
+# Also, the orientation should be such that, when opening the STL file with Meshlab, you are looking towards the treatment head
+# as if you were standing in the treatment room in front of it (no couch support rotation), and the gantry is at zero degrees.
+# You might need to cleanup your model to avoid an import error in RayStation. You can do so by opening it in Meshlab, then
+# click on Unify duplicated Vertices, Ok, File, Export Mesh As, Select first extension on dropdown menu, and then rename as .stl
 #
-# The initial affine transformation applied will be to rotate LINAC model according to gantry angle,
-# then simulate couch angle via a negative couch rotation of the model,
-# and finally translation of the model to the isocenter (iso.x,iso.y,iso.z) in the CT patient
-# resulting in TransformationMatrix M(iso.x,iso.y,iso.z,c,g) = T(iso.x,iso.y,iso.z) * R_y ( b = -c ) * R_z ( a = -g ) =
+# The initial affine transformation will place the treatment head at gantry and couch angle g=0, c=0.
+# Internally, we rotate the treatment head according to gantry angle offset g0,
+# then simulate couch angle offset c0 via a negative couch rotation of the model,
+# and finally the translation of the model to the isocenter (iso.x,iso.y,iso.z) in the CT patient
+# resulting in TransformationMatrix M(iso.x,iso.y,iso.z,c,g) = T(iso.x,iso.y,iso.z) * R_y ( b = -(c+c0) ) * R_z ( a = -(g+g0) ) =
 # {'M11':cos(a)*cos(b), 'M12':-sin(a)*cos(b), 'M13':-sin(b), 'M14':iso.x,
 #  'M21':sin(a)       , 'M22': cos(a)       , 'M23': 0     , 'M24':iso.y,
 #  'M31':cos(a)*sin(b), 'M32':-sin(a)*sin(b), 'M33': cos(b), 'M34':iso.z,
@@ -57,19 +77,21 @@
 # undoing the previous gantry rotation (g)
 # and computing the previous TransformationMatrix M with the new angles. (g2,c2).
 # Altogether, it yields the TransformationMatrix D = M(iso.x,iso.y,iso.z,c2,g2) * inverse(M(iso.x,iso.y,iso.z,c2,g2)) =
-# M(iso.x,iso.y,iso.z,c2,g2) * R_z ( a = g ) * R_y ( b = c ) * T(-iso.x,-iso.y,-iso.z) =
-# T(iso.x,iso.y,iso.z) * R_y ( b2 = -c2 ) * R_z ( a2 = -g2)  * R_z ( a = g ) * R_y ( b = c ) * T(-iso.x,-iso.y,-iso.z) =
-# T(iso.x,iso.y,iso.z) * R_y ( b2 = -c2 ) * R_z ( d = g-g2) * R_y ( b = c ) * T(-iso.x,-iso.y,-iso.z) =
+# M(iso.x,iso.y,iso.z,c2,g2) * R_z ( a = g+g0 ) * R_y ( b = c+c0 ) * T(-iso.x,-iso.y,-iso.z) =
+# T(iso.x,iso.y,iso.z) * R_y ( b2 = -(c0+c2) ) * R_z ( a2 = -(g0+g2))  * R_z ( a = (g0+g) ) * R_y ( b = (c0+c) ) * T(-iso.x,-iso.y,-iso.z) =
+# T(iso.x,iso.y,iso.z) * R_y ( b2 = -(c0+c2) ) * R_z ( d = g-g2) * R_y ( b = c ) * T(-iso.x,-iso.y,-iso.z) =
 # resulting in TransformationMatrix D(iso.x,iso.y,iso.z,c2,g2,c,g) =
 # {'M11':cos(d)*cos(b)*cos(b2)-sin(b)*sin(b2), 'M12':-sin(d)*cos(b2), 'M13':-cos(d)*sin(b)*cos(b2)-cos(b)*sin(b2), 'M14':iso.x-iso.x*(cos(d)*cos(b)*cos(b2)-sin(b)*sin(b2))+iso.y*sin(d)*cos(b2)+iso.z*(cos(d)*sin(b)*cos(b2)+cos(b)*sin(b2)),
 #  'M21':sin(d)*cos(b)                       , 'M22': cos(d)        , 'M23':-sin(d)*sin(b)                       , 'M24':iso.y-iso.x* sin(d)*cos(b)                        -iso.y*cos(d)        +iso.z* sin(d)*sin(b)                        ,
 #  'M31':cos(d)*cos(b)*sin(b2)+sin(b)*cos(b2), 'M32':-sin(d)*sin(b2), 'M33':-cos(d)*sin(b)*sin(b2)+cos(b)*cos(b2), 'M34':iso.z-iso.x*(cos(d)*cos(b)*sin(b2)+sin(b)*cos(b2))+iso.y*sin(d)*sin(b2)+iso.z*(cos(d)*sin(b)*sin(b2)-cos(b)*cos(b2)),
 #  'M41':0                                   , 'M42': 0             , 'M43': 0                                   , 'M44':1                                                             }
 
-from math import cos, sin, radians, degrees, hypot, atan2
-import sys
+# Import basic modules
+from math import cos, sin, radians
 import re
 import itertools
+
+# Import RayStation modules and WinForms for GUI
 import ScriptClient
 from connect import *
 import clr
@@ -80,10 +102,23 @@ from System.Drawing import Point, Size
 
 
 class Part:
+    """
+    Class describing a 3D model file, that might be a part of the whole machine (treatment head or couch)
+    """
 
-    def __init__(self, name, file, color, active, movex=True, movey=True, movez=True):
+    def __init__(self, name, filename, color, active, movex=True, movey=True, movez=True):
+        """
+        Initialization of the object
+        :param name: the identifier name of the part, it must be unique as it is used as a key, e.g. Nozzle.
+        :param filename: the name of the STL file within the folder you stored it
+        :param color: the color of the ROI once the model is imported into Raystation
+        :param active: flag to activate or deactivate the import of this specific part of the whole machine
+        :param movex: flag to activate or deactivate the translation of this part along the x coordinate
+        :param movey: flag to activate or deactivate the translation of this part along the y coordinate
+        :param movez: flag to activate or deactivate the translation of this part along the z coordinate
+        """
         self.name = name
-        self.file = file
+        self.filename = filename
         self.color = color
         self.active = active
         self.moveX = movex
@@ -92,54 +127,37 @@ class Part:
 
 
 class Machine:
+    """
+    Class grouping different Parts into the same machine, e.g. a treatment head or a couch
+    """
 
     def __init__(self, name, path, parts):
+        """
+        Initialization of the object
+        :param name: the identifier name of the part, it must be unique as it is used as a key, e.g. Elekta Agility.
+        :param path: the path where all STL models of this machine are stored, namely the folder containing all subfiles (STL parts)
+        :param parts: the array of Parts corresponding to this machine
+        """
         self.name = name
         self.path = path
         self.parts = parts
 
 
-# agility = Machine("Agility", "\\\\Client\\H$\\STL parts\\",[Part("Nozzle","RotatingHeads.stl","Blue") ])
-agility = Machine("Elekta Agility", "Y:\\STL parts\\Elekta Agility\\",
-                  [Part("Nozzle", "RotatingHeads.stl", "Blue", True),
-                   Part("Electron cone 15cm x 15cm", "ElectronApplicator.stl", "Blue", False),
-                   Part("Flat panel left", "FlatPanelExtensionLeft.stl", "Blue", False),
-                   Part("Flat panel bottom", "FlatPanelExtension.stl", "Blue", False),
-                   Part("CBCT source", "CBCTsource.stl", "Blue", False)
-                   ]
-                  )
-proteus = Machine("iba Proteus", "Y:\\STL parts\\iba Proteus\\", [Part("Nozzle", "NozzleWithSmallSnout.stl", "Blue", True)])
-trilogy = Machine("Varian IX Trilogy", "Y:\\STL parts\\Varian IX Trilogy\\", [Part("Nozzle", "RotatingHeads.stl", "Blue", True)])
-truebeam = Machine("Varian TrueBeam",   "Y:\\STL parts\\Varian TrueBeam\\", [Part("Nozzle", "RotatingHeads.stl", "Blue", True)])
-
-linacs = {agility.name: agility, proteus.name: proteus, trilogy.name: trilogy, truebeam.name: truebeam}
-
-evo = Machine("Hexapod Evo", "Y:\\STL parts\\Hexapod Evo\\",
-              [Part("Couch", "Hexapod.stl", "Green", True),
-               Part("Couch base top", "CouchBaseFwd.stl", "Green", False),
-               Part("Couch base middle", "CouchBase.stl", "Green", False, True, True, False),
-               Part("Couch base bottom", "ScissorsTop.stl", "Green", False, False, True, False),
-               Part("Couch base support", "ScissorsBottom.stl", "Green", False, False, False, False),
-               Part("Right control", "RightCouchControl.stl", "Green", False, True, True, False),
-               Part("Left control", "LeftCouchControl.stl", "Green", False, True, True, False),
-               Part("Extension", "CouchExtension.stl", "Green", False),
-               Part("Head support", "HeadAdapter.stl", "Green", False),
-               ]
-              )
-
-couches = {evo.name: evo}
-
-
-# Define Form class that will prompt the user to select an element
-# from a list via a combo box
 class SelectListForm(Form):
+    """
+    Define Form generic class that will prompt the user to select an element
+    from a list via a combo box
+    """
 
-    def __init__(self, list, description):
-        # Set the size of the form
+    def __init__(self, lst, description):
+        """
+        :param: self the reference to the Form
+        :param: lst the list of elements
+        :param: description the readable title of the list or category of elements
+        """
         self.name = None
-        self.Size = Size(300, 200)
-        # Set title of the form
-        self.Text = 'Select '+description
+        self.Size = Size(300, 200)   # Set the size of the form
+        self.Text = 'Select '+description  # Set title of the form
 
         # Add a label
         label = Label()
@@ -148,10 +166,9 @@ class SelectListForm(Form):
         label.AutoSize = True
         self.Controls.Add(label)
 
-        # Add a ComboBox that will display the Machines to select
-        # Define the items to show up in the combobox
+        # Add a ComboBox that will display the items of this list
         self.combobox = ComboBox()
-        self.combobox.DataSource = list.keys()
+        self.combobox.DataSource = lst.keys()
         self.combobox.Location = Point(15, 60)
         self.combobox.AutoSize = True
         self.Controls.Add(self.combobox)
@@ -164,26 +181,34 @@ class SelectListForm(Form):
         button.Click += self.ok_button_clicked
         self.Controls.Add(button)
 
-        self.AcceptButton = button
+        self.AcceptButton = button  # Enter Key presses the OK button
 
     def ok_button_clicked(self, _sender, _event):
-        # Method invoked when the button is clicked
-        # Save the selected machine name
-        self.name = self.combobox.SelectedValue
-        # Close the form
-        self.Close()
+        """
+        Method invoked when the OK button is clicked
+        :param: self the reference to the Form
+        :param: _sender  ignore
+        :param: _event ignore
+        """
+        self.name = self.combobox.SelectedValue  # Save the selected element name
+        self.Close()  # Close the form
 
 
-# Define Form class that will prompt the user to select which
-# parts to draw
 class SelectPartsForm(Form):
+    """
+    Define Form class that will prompt the user to select which parts of the Machine to draw
+    """
 
-    def __init__(self, group):
-        # Set the size of the form
-        self.Size = Size(300, 500)
-        # Set title of the form
-        self.Text = 'Select Parts'
-        self.group = group
+    def __init__(self, machine):
+        """
+        Form initialization
+        :param: self reference to the Form
+        :param: machine array of parts corresponding to this machine
+        """
+
+        self.Size = Size(300, 500)  # Set the size of the form
+        self.Text = 'Select Parts'  # Set title of the form
+        self.machine = machine
 
         # Add a label
         label = Label()
@@ -192,9 +217,9 @@ class SelectPartsForm(Form):
         label.AutoSize = True
         self.Controls.Add(label)
 
-        # Add a CheckBox for each part to activate or deactivate
+        # Add a CheckBox for each part to activate or deactivate each part separately
         i = 0
-        for part in self.group.parts:
+        for part in self.machine.parts:
             part.cb = CheckBox()
             part.cb.Location = Point(15, 60+i*20)
             part.cb.Text = part.name
@@ -211,26 +236,35 @@ class SelectPartsForm(Form):
         button.Click += self.ok_button_clicked
         self.Controls.Add(button)
 
-        self.AcceptButton = button
+        self.AcceptButton = button  # Pressing enter works like a click on the OK button
 
     def ok_button_clicked(self, _sender, _event):
-        # Method invoked when the button is clicked
-        # Save the selected machine name
-        for part in self.group.parts:
+        """
+        Method invoked when the OK button is clicked. Parts active flag is updated
+        :param: self the reference to the Form
+        :param: _sender  ignore
+        :param: _event ignore
+        """
+        for part in self.machine.parts:
             part.active = part.cb.Checked
             part.cb = None
-        # Close the form
-        self.Close()
+        self.Close()  # Close the form
 
 
-class SelectAngleForm(Form):
+class TuneModelsForm(Form):
+    """
+    Main GUI form to move and rotate 3D models interactively
+    """
+
     def __init__(self):
-        # Set the size of the form
+        """
+        Form initialization
+        :param: self reference to the Form
+        """
         self.StartupPosition = FormStartPosition.Manual
         self.Location = Point(500, 15)
-        self.Size = Size(500, 475)
-        # Set title of the form
-        self.Text = 'Tune 3D model positions'
+        self.Size = Size(500, 475)  # Set the size of the form
+        self.Text = 'Tune 3D model positions'  # Set title of the form
         self.TopMost = True
 
         # Add a beam label
@@ -362,6 +396,7 @@ class SelectAngleForm(Form):
         button.Click += self.apply_button_clicked
         self.Controls.Add(button)
 
+        # Add button to press Exit
         button2 = Button()
         button2.Text = 'Exit'
         button2.AutoSize = True
@@ -370,45 +405,97 @@ class SelectAngleForm(Form):
         self.Controls.Add(button2)
 
     def on_enter(self, _sender, args):
-        key = args.KeyCode
-        if key == Keys.Enter:
+        """
+        Method invoked when a key is pressed within a textbox. It calls transform() if this key is enter
+        :param: self the reference to the Form
+        :param: _sender  ignore
+        :param: args contains the pressed key event
+        """
+        if args.KeyCode == Keys.Enter:
             self.transform()
 
     def updatetbox_b(self, _sender, _event):
+        """
+        Method invoked when the beam angle slider is moved. Updates the text box and calls transform()
+        :param: self the reference to the Form
+        :param: _sender  ignore
+        :param: _event ignore
+        """
         self.tboxB.Text = str(self.tbB.Value)
         self.transform()
 
     def updatetbox_c(self, _sender, _event):
+        """
+        Method invoked when the couch angle slider is moved. Updates the text box and calls transform()
+        :param: self the reference to the Form
+        :param: _sender  ignore
+        :param: _event ignore
+        """
         self.tboxC.Text = str(self.tbC.Value)
         self.transform()
 
     def updatetbox_x(self, _sender, _event):
+        """
+        Method invoked when the x slider is moved. Updates the text box and calls transform()
+        :param: self the reference to the Form
+        :param: _sender  ignore
+        :param: _event ignore
+        """
         self.tboxX.Text = str(self.tbX.Value)
         self.transform()
 
     def updatetbox_y(self, _sender, _event):
+        """
+        Method invoked when the y slider is moved. Updates the text box and calls transform()
+        :param: self the reference to the Form
+        :param: _sender  ignore
+        :param: _event ignore
+        """
         self.tboxY.Text = str(self.tbY.Value)
         self.transform()
 
     def updatetbox_z(self, _sender, _event):
+        """
+        Method invoked when the z slider is moved. Updates the text box and calls transform()
+        :param: self the reference to the Form
+        :param: _sender  ignore
+        :param: _event ignore
+        """
         self.tboxZ.Text = str(self.tbZ.Value)
         self.transform()
 
     def exit_button_clicked(self, _sender, _event):
+        """
+        Method invoked when the Exit button is clicked. It closes the form.
+        :param: self the reference to the Form
+        :param: _sender  ignore
+        :param: _event ignore
+        """
         self.Close()
 
     def apply_button_clicked(self, _sender, _event):
-        # Method invoked when the button is clicked
+        """
+        Method invoked when the Apply button is clicked. It calls the transform() function
+        :param: self the reference to the Form
+        :param: _sender  ignore
+        :param: _event ignore
+        """
         self.transform()
 
     def transform(self):
+        """
+        Slot function called whenever the Apply button is clicked, or when entered is clicked on text box,
+        or when slider is moved so that text box is updated
+        :param: self reference to the Form
+        """
+        # Get transformation from text box
         ba = self.tboxB.Text
         ca = self.tboxC.Text
         x = self.tboxX.Text
         y = self.tboxY.Text
         z = self.tboxZ.Text
 
-        # Sanity check
+        # Sanity check that we are in the correct range
         ok = True
         if ba == "" or float(ba) < self.tbB.Minimum:
             ba = str(int(self.tbB.Minimum))
@@ -451,7 +538,9 @@ class SelectAngleForm(Form):
             self.tboxZ.Text = z
             ok = False
 
-        self.update_sliders()
+        self.update_sliders()  # Update slider position
+
+        # If input value was in correct interval, perform the transformation
         if ok:
             global gangle
             global cangle
@@ -463,7 +552,6 @@ class SelectAngleForm(Form):
             global oldcy
             global cz
             global oldcz
-            # Transform the models
             oldgangle = gangle
             oldcangle = cangle
             oldcx = cx
@@ -474,43 +562,67 @@ class SelectAngleForm(Form):
             cx = float(x)
             cy = float(y)
             cz = float(z)
-            #Convert to cm
+            # Convert couch deviation to cm (RayStation coordinates)
             cx /= 10.
             cy /= 10.
             cz /= 10.
+            # Transform the models
             transform_models()
 
     def update_sliders(self):
-        # Without emitting, to avoid inf loop
-        self.tbB.ValueChanged -= self.updatetbox_b
-        self.tbB.Value = float(self.tboxB.Text)
-        self.tbB.ValueChanged += self.updatetbox_b
-        self.tbC.ValueChanged -= self.updatetbox_c
-        self.tbC.Value = float(self.tboxC.Text)
-        self.tbC.ValueChanged += self.updatetbox_c
-        self.tbX.ValueChanged -= self.updatetbox_x
-        self.tbX.Value = float(self.tboxX.Text)
-        self.tbX.ValueChanged += self.updatetbox_x
-        self.tbY.ValueChanged -= self.updatetbox_y
-        self.tbY.Value = float(self.tboxY.Text)
-        self.tbY.ValueChanged += self.updatetbox_y
-        self.tbZ.ValueChanged -= self.updatetbox_z
-        self.tbZ.Value = float(self.tboxZ.Text)
-        self.tbZ.ValueChanged += self.updatetbox_z
+        """
+        Update the GUI sliders if after text box input finished.
+        It has to be done without emitting new signal, to avoid an infinite loop
+        :param: self reference to Form
+        """
+        # Get new values from text box
+        newb = round(float(self.tboxB.Text))
+        newc = round(float(self.tboxC.Text))
+        newx = round(float(self.tboxX.Text))
+        newy = round(float(self.tboxY.Text))
+        newz = round(float(self.tboxZ.Text))
+        # If different from trackbar value, disconnect temporarily from slots and update the value
+        if abs(newb-self.tbB.Value) > 0:
+            self.tbB.ValueChanged -= self.updatetbox_b
+            self.tbB.Value = newb
+            self.tbB.ValueChanged += self.updatetbox_b
+        if abs(newc - self.tbC.Value) > 0:
+            self.tbC.ValueChanged -= self.updatetbox_c
+            self.tbC.Value = newc
+            self.tbC.ValueChanged += self.updatetbox_c
+        if abs(newx - self.tbX.Value) > 0:
+            self.tbX.ValueChanged -= self.updatetbox_x
+            self.tbX.Value = newx
+            self.tbX.ValueChanged += self.updatetbox_x
+        if abs(newy - self.tbY.Value) > 0:
+            self.tbY.ValueChanged -= self.updatetbox_y
+            self.tbY.Value = newy
+            self.tbY.ValueChanged += self.updatetbox_y
+        if abs(newz - self.tbZ.Value) > 0:
+            self.tbZ.ValueChanged -= self.updatetbox_z
+            self.tbZ.Value = newz
+            self.tbZ.ValueChanged += self.updatetbox_z
 
 
 def tune_models():
-    # await_user_input('Import finished. You can check your model now. If you want to change the beam angle,
-    # click on Resume again. If you want to exit and remove the ROIs, introduce a negative beam angle.')
-    aform = SelectAngleForm()
+    """
+    This function creates a GUI form with sliders for adjusting interactively the treatment head and couch position.
+    Once the user presses exit, the form is closed and the imported 3D models are removed.
+    """
+    aform = TuneModelsForm()
     Application.Run(aform)
+    # Form closed, remove now imported ROIs
     remove_models()
 
 
 def transform_models():
-    for part in machine.parts:
-        if part.active:
-            if abs(cangle-oldcangle) > 0 or abs(gangle-oldgangle) > 0:
+    """
+    This function transforms the imported 3D models to match a new gantry and couch angle, or couch position
+    """
+    # First, rotate the treatment head to the new angle
+    if abs(cangle - oldcangle) > 0 or abs(gangle - oldgangle) > 0:
+        for part in linac.parts:
+            if part.active:
                 roi_name = part.name
                 b = -cs*(oldcangle+c0)
                 b2 = cs*(cangle+c0)
@@ -520,29 +632,33 @@ def transform_models():
                     'M21': sin(d)*cos(b)                       , 'M22':  cos(d)        , 'M23': -sin(d)*sin(b)                       , 'M24': iso.y-iso.x* sin(d)*cos(b)                        -iso.y*cos(d)        +iso.z* sin(d)*sin(b)                        ,
                     'M31': cos(d)*cos(b)*sin(b2)+sin(b)*cos(b2), 'M32': -sin(d)*sin(b2), 'M33': -cos(d)*sin(b)*sin(b2)+cos(b)*cos(b2), 'M34': iso.z-iso.x*(cos(d)*cos(b)*sin(b2)+sin(b)*cos(b2))+iso.y*sin(d)*sin(b2)+iso.z*(cos(d)*sin(b)*sin(b2)-cos(b)*cos(b2)),
                     'M41': 0                                   , 'M42':  0             , 'M43':  0                                   , 'M44': 1                                                                                                                   })
-    # await_user_input('Transformation finished. If you want to change the beam angle, click on Resume Script again. If you want to remove the ROIs, introduce a negative beam angle.')
-    for part in couch.parts:
-        if part.active:
-            roi_name = part.name
-            dx = cx-oldcx
-            dy = cy-oldcy
-            dz = cz-oldcz
-            if not part.moveX:
-                dx = 0
-            if not part.moveY:
-                dy = 0
-            if not part.moveZ:
-                dz = 0
-            if abs(dx) > 0 or abs(dy) > 0 or abs(dz) > 0:
-                case.PatientModel.RegionsOfInterest[roi_name].TransformROI3D(Examination=examination, TransformationMatrix={
-                    'M11': 1, 'M12': 0, 'M13': 0, 'M14': dx,
-                    'M21': 0, 'M22': 1, 'M23': 0, 'M24': dy,
-                    'M31': 0, 'M32': 0, 'M33': 1, 'M34': dz,
-                    'M41': 0, 'M42': 0, 'M43': 0, 'M44': 1})
+    # Then, move the couch to a new position
+    if abs(cx - oldcx) > 0 or abs(cy - oldcy) or abs(cz-oldcz) > 0:
+        for part in couch.parts:
+            if part.active:
+                roi_name = part.name
+                dx = cx-oldcx
+                dy = cy-oldcy
+                dz = cz-oldcz
+                if not part.moveX:
+                    dx = 0
+                if not part.moveY:
+                    dy = 0
+                if not part.moveZ:
+                    dz = 0
+                if abs(dx) > 0 or abs(dy) > 0 or abs(dz) > 0:
+                    case.PatientModel.RegionsOfInterest[roi_name].TransformROI3D(Examination=examination, TransformationMatrix={
+                        'M11': 1, 'M12': 0, 'M13': 0, 'M14': dx,
+                        'M21': 0, 'M22': 1, 'M23': 0, 'M24': dy,
+                        'M31': 0, 'M32': 0, 'M33': 1, 'M34': dz,
+                        'M41': 0, 'M42': 0, 'M43': 0, 'M44': 1})
 
 
 def remove_models():
-    for part in itertools.chain(machine.parts, couch.parts):
+    """
+    This function remove the ROIs created at the beginning of the script, to clean up everything upon script termination
+    """
+    for part in itertools.chain(linac.parts, couch.parts):
         if part.active:
             # delete ROI
             roi_name = part.name
@@ -550,23 +666,64 @@ def remove_models():
 
 
 def main():
-    # Initialization. Variables below are global
+    """
+    Main script function
+    """
+
+    # Define your 3D models and machines available at your institution
+    agility = Machine("Elekta Agility", "Y:\\STL parts\\Elekta Agility\\",
+                      [Part("Nozzle", "RotatingHeads.stl", "Blue", True),
+                       Part("Electron cone 15cm x 15cm", "ElectronApplicator.stl", "Blue", False),
+                       Part("Flat panel left", "FlatPanelExtensionLeft.stl", "Blue", False),
+                       Part("Flat panel bottom", "FlatPanelExtension.stl", "Blue", False),
+                       Part("CBCT source", "CBCTsource.stl", "Blue", False)
+                       ]
+                      )
+    proteus = Machine("iba Proteus", "Y:\\STL parts\\iba Proteus\\", [Part("Nozzle", "NozzleWithSmallSnout.stl", "Blue", True)])
+    trilogy = Machine("Varian IX Trilogy", "Y:\\STL parts\\Varian IX Trilogy\\", [Part("Nozzle", "RotatingHeads.stl", "Blue", True)])
+    truebeam = Machine("Varian TrueBeam", "Y:\\STL parts\\Varian TrueBeam\\", [Part("Nozzle", "RotatingHeads.stl", "Blue", True)])
+    # For the couch model, you can specify which subparts are fixed in x, y, z coordinates, i.e. do not translate when moving the upper part of the couch
+    evo = Machine("Hexapod Evo", "Y:\\STL parts\\Hexapod Evo\\",
+                  [Part("Couch", "Hexapod.stl", "Green", True),
+                   Part("Couch base top", "CouchBaseFwd.stl", "Green", False),
+                   Part("Couch base middle", "CouchBase.stl", "Green", False, True, True, False),
+                   Part("Couch base bottom", "ScissorsTop.stl", "Green", False, False, True, False),
+                   Part("Couch base support", "ScissorsBottom.stl", "Green", False, False, False, False),
+                   Part("Right control", "RightCouchControl.stl", "Green", False, True, True, False),
+                   Part("Left control", "LeftCouchControl.stl", "Green", False, True, True, False),
+                   Part("Extension", "CouchExtension.stl", "Green", False),
+                   Part("Head support", "HeadAdapter.stl", "Green", False),
+                   ]
+                  )
+
+    # Define the list of available treatment heads
+    linacs = {agility.name: agility, proteus.name: proteus, trilogy.name: trilogy, truebeam.name: truebeam}
+    # Define the list of available couches
+    couches = {evo.name: evo}
+
+    # GUI initialization. Some variables below are global
+
+    # Select first which treatment head to use
     form = SelectListForm(linacs, "LINAC")
     Application.Run(form)
-    global machine
-    machine = linacs[form.name]
+    global linac
+    linac = linacs[form.name]
 
-    pform = SelectPartsForm(machine)
+    # Select which subparts of the treatment head you want to draw
+    pform = SelectPartsForm(linac)
     Application.Run(pform)
 
+    # Select now which couch to use
     cform = SelectListForm(couches, "patient couch")
     Application.Run(cform)
     global couch
     couch = couches[cform.name]
 
+    # Select which subparts of the couch you want to draw
     pcform = SelectPartsForm(couch)
     Application.Run(pcform)
 
+    # Get now the currently opened RayStation patient
     global case
     case = get_current('Case')
     global examination
@@ -574,28 +731,30 @@ def main():
     structure_set = case.PatientModel.StructureSets[examination.Name]
     orientation = examination.PatientPosition
 
-    # A rotation of the 3D model is needed to match the CT orientation depending on PatientPosition attribute
+    # A rotation angle offset in degrees of the 3D model is needed to match the CT orientation depending on PatientPosition attribute
+    # Also, a correction of the rotation direction is needed depending on the patient orientation.
     gantry_angle_offset = {'HFS': 180, 'FFS': 180, 'HFP':   0, 'FFP':  0}
     couch_angle_offset =  {'HFS': 180, 'FFS':   0, 'HFP': 180, 'FFP':  0}
     gantry_direction =    {'HFS':  -1, 'FFS':  -1, 'HFP':  -1, 'FFP': -1}
     couch_direction =     {'HFS':  -1, 'FFS':  -1, 'HFP':   1, 'FFP':  1}
+    # g0, c0 are the needed gantry angle and couch angle rotation of the 3D model to match this patient orientation
+    # gs, cs are the rotation direction signs to be applied in order to match this patient orientation
     global g0, c0, gs, cs
     g0 = radians(gantry_angle_offset[orientation])
     c0 = radians(couch_angle_offset[orientation])
     gs = gantry_direction[orientation]
     cs = couch_direction[orientation]
 
+    # Check if Isocenter has already been defined, if not, wait until defined, then continue
     poi_type = 'Isocenter'
     poi_lst = [r.Type for r in case.PatientModel.PointsOfInterest]
-    # check if POI already defined, if not, wait until defined, then continue
     while poi_type not in poi_lst:
         await_user_input('Please click OK and define an "'+poi_type+'" POI, then click on Play Script')
         poi_lst = [r.Type for r in case.PatientModel.PointsOfInterest]
-
     global iso
     iso = structure_set.PoiGeometries[poi_lst.index(poi_type)].Point
 
-    # Create first model at angles 0,0.  These below are global variables.
+    # Create first model at angles g=0,c=0.  These below are global variables.
     global gangle, cangle, oldgangle, oldcangle
     global cx, cy, cz, oldcx, oldcy, oldcz
     gangle = 0
@@ -609,23 +768,24 @@ def main():
     oldcy = 0
     oldcz = 0
 
-    # Remove previous ROIs if already defined, e.g. if previous program instance crashed or script was stopped
+    # Remove previous ROIs if already defined, e.g. if previous program instance crashed or script was stopped. This prevents an error later when importing.
+    # User is asked for individual removal confirmation, just in case someone defined a clinical ROI with by chance the same name than your model.
     roi_lst = [r.Name for r in case.PatientModel.RegionsOfInterest]
-    for part in itertools.chain(machine.parts, couch.parts):
+    for part in itertools.chain(linac.parts, couch.parts):
         if part.active:
-            # create ROI
             roi_name = part.name
             if roi_name in roi_lst:
                 await_user_input('Confirm deletion of preexisting ROI "' + roi_name + '" by clicking on Resume Script. Otherwise click Stop Script.')
                 case.PatientModel.RegionsOfInterest[roi_name].DeleteRoi()
 
-    for part in machine.parts:
+    # Create now treatment head ROIs and import STL models. Gantry and couch angle will be zero, and model will be centered at iso
+    for part in linac.parts:
         if part.active:
             # create ROI
             roi_name = part.name
             roi_color = part.color
             roi_type = 'Support'
-            file_name = machine.path+part.file
+            file_name = linac.path + part.filename
             case.PatientModel.CreateRoi(Name=roi_name, Color=roi_color, Type=roi_type)
             # import mesh from file
             geo = structure_set.RoiGeometries[roi_name]
@@ -637,16 +797,15 @@ def main():
                                                                'M31': cos(a)*sin(b), 'M32': -sin(a)*sin(b), 'M33':  cos(b), 'M34': iso.z,
                                                                'M41':             0, 'M42':              0, 'M43':       0, 'M44':     1})
 
-    # Get list of couches defined before the script
-    couch_lst = [r.Name for r in case.PatientModel.RegionsOfInterest if r.Type == 'Support' if re.search('couch', r.Name, re.IGNORECASE)]
-
+    # Create now couch ROIs and import STL models. Couch will be centered at iso, but not moved.
+    # Thus, it might be far away from the patient and has to be readjusted with the GUI sliders.
     for part in couch.parts:
         if part.active:
             # create ROI
             roi_name = part.name
             roi_color = part.color
             roi_type = 'Support'
-            file_name = couch.path+part.file
+            file_name = couch.path+part.filename
             case.PatientModel.CreateRoi(Name=roi_name, Color=roi_color, Type=roi_type)
             # import mesh from file
             geo = structure_set.RoiGeometries[roi_name]
@@ -658,8 +817,13 @@ def main():
                                                                'M31': cos(a)*sin(b), 'M32': -sin(a)*sin(b), 'M33':  cos(b), 'M34': iso.z,
                                                                'M41':             0, 'M42':              0, 'M43':       0, 'M44':     1})
 
-    # If there is a Couch model and couch contour, recenter couch parts
+    # Get list contoured couch ROIs here, ie. whose name contain couch (case insensitive)
+    couch_lst = [r.Name for r in case.PatientModel.RegionsOfInterest if r.Type == 'Support' if re.search('couch', r.Name, re.IGNORECASE)]
+    # Get list of couch STL 3D models, ie. whose name contain couch (case insensitive)
     couch_models = [c.name for c in couch.parts if c.active if re.search('couch', c.name, re.IGNORECASE)]
+
+    # If there is a Couch ROI that someone contoured on the CT, recenter couch parts to match it approximately.
+    # This is implemented by looking for the first occurrence ROI or model containing the substring couch.
     if len(couch_models) > 0:
         model_name = couch_models[0]
         geom = structure_set.RoiGeometries[model_name]
@@ -667,16 +831,18 @@ def main():
             roi_name = couch_lst[0]
             geo = structure_set.RoiGeometries[roi_name]
 
+            # Get center of the contoured couch
             rb = geo.GetBoundingBox()
             rx = (rb[1].x + rb[0].x) / 2
             ry = (rb[1].y + rb[0].y) / 2
             rz = rb[0].z
-
+            # Get center of the 3D model couch
             mb = geom.GetBoundingBox()
             mx = (mb[1].x + mb[0].x) / 2
             my = (mb[1].y + mb[0].y) / 2
             mz = mb[0].z
 
+            # Move all couch parts to close the difference
             dx0 = rx-mx
             dy0 = ry-my
             dz0 = rz-mz
@@ -701,5 +867,6 @@ def main():
     ScriptClient.AppUtil.RunInNewThread(tune_models())
 
 
+# Start program by calling main() function
 if __name__ == '__main__':
     main()
