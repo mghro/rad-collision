@@ -92,14 +92,17 @@ import re
 import itertools
 
 # Import RayStation modules and WinForms for GUI
-import ScriptClient
 from connect import *
 import clr
 clr.AddReference("System.Windows.Forms")
 clr.AddReference("System.Drawing")
 from System.Windows.Forms import Application, Form, Label, ComboBox, Button, TextBox, TrackBar, FormStartPosition, TickStyle, Keys, CheckBox
 from System.Drawing import Point, Size
+from System.Threading import ThreadStart, Thread
 
+# These below are global variables.
+global gangle, cangle, oldgangle, oldcangle
+global cx, cy, cz, oldcx, oldcy, oldcz
 
 class Part:
     """
@@ -152,16 +155,16 @@ class SelectListForm(Form):
     def __init__(self, lst, description):
         """
         :param: self the reference to the Form
-        :param: lst the list of elements
+        :param: lst the list of elements with keys
         :param: description the readable title of the list or category of elements
         """
         self.name = None
         self.Size = Size(300, 200)   # Set the size of the form
-        self.Text = 'Select '+description  # Set title of the form
+        self.Text = 'Select {}'.format(description)  # Set title of the form
 
         # Add a label
         label = Label()
-        label.Text = 'Please select desired '+description
+        label.Text = 'Please select desired {}'.format(description)
         label.Location = Point(15, 15)
         label.AutoSize = True
         self.Controls.Add(label)
@@ -218,15 +221,13 @@ class SelectPartsForm(Form):
         self.Controls.Add(label)
 
         # Add a CheckBox for each part to activate or deactivate each part separately
-        i = 0
-        for part in self.machine.parts:
+        for i, part in enumerate(self.machine.parts):
             part.cb = CheckBox()
             part.cb.Location = Point(15, 60+i*20)
             part.cb.Text = part.name
             part.cb.Width = 275
             part.cb.Checked = part.active
             self.Controls.Add(part.cb)
-            i += 1
 
         # Add button to press OK and close the form
         button = Button()
@@ -301,7 +302,7 @@ class TuneModelsForm(Form):
         label_c.AutoSize = True
         self.Controls.Add(label_c)
 
-        # Add a text box that to write the desired couch angle
+        # Add a text box to write the desired couch angle
         self.tboxC = TextBox()
         self.tboxC.Location = Point(15, 160)
         self.tboxC.Width = 55
@@ -665,10 +666,8 @@ def remove_models():
             case.PatientModel.RegionsOfInterest[roi_name].DeleteRoi()
 
 
-def main():
-    """
-    Main script function
-    """
+# Start program
+if __name__ == '__main__':
 
     # Define your 3D models and machines available at your institution
     agility = Machine("Elekta Agility", "Y:\\STL parts\\Elekta Agility\\",
@@ -751,12 +750,21 @@ def main():
     while poi_type not in poi_lst:
         await_user_input('Please click OK and define an "'+poi_type+'" POI, then click on Play Script')
         poi_lst = [r.Type for r in case.PatientModel.PointsOfInterest]
-    global iso
-    iso = structure_set.PoiGeometries[poi_lst.index(poi_type)].Point
 
-    # Create first model at angles g=0,c=0.  These below are global variables.
-    global gangle, cangle, oldgangle, oldcangle
-    global cx, cy, cz, oldcx, oldcy, oldcz
+    # If there are more than one isocenter, ask the user to confirm which one to use
+    global iso
+    if poi_lst.count(poi_type)>1:
+        isocenters = [r.Name for r in case.PatientModel.PointsOfInterest if r.Type==poi_type]
+        print(isocenters)
+        isolist = {isocenters[i]:i for i in range(0, len(isocenters))}
+        print(isolist)
+        isoform = SelectListForm(isolist, "Isocenter")
+        Application.Run(isoform)
+        iso = structure_set.PoiGeometries[isoform.name].Point
+    else:
+        iso = structure_set.PoiGeometries[poi_lst.index(poi_type)].Point
+
+    # Create first model at angles g=0,c=0.
     gangle = 0
     cangle = 0
     oldgangle = 0
@@ -864,9 +872,6 @@ def main():
                         'M31': 0, 'M32': 0, 'M33': 1, 'M34': dz,
                         'M41': 0, 'M42': 0, 'M43': 0, 'M44': 1})
 
-    ScriptClient.AppUtil.RunInNewThread(tune_models())
-
-
-# Start program by calling main() function
-if __name__ == '__main__':
-    main()
+    thread = Thread(ThreadStart(tune_models))
+    thread.Start()
+    thread.Join()
