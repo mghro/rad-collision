@@ -39,6 +39,7 @@
 # and z completes the triad (pointing to you, reader)
 # However, the 2D viewer looks different for HFS orientation or any other, as they maintain the CT acquisition orientation
 # and move instead the labels R, L, A, P, S, I.
+# Note also that the coordinates you see in the RayStation Viewer are not xyz, but RL, IS, PA, with RL = x, IS = z, PA = -y
 #
 # Let us define some rotation angles:
 # a: rotation around z axis (from x to y axis), represented by a classical rotation matrix R_z, with R_z[row=1,column=2] = -sin(a)
@@ -87,7 +88,7 @@
 #  'M41':0                                   , 'M42': 0             , 'M43': 0                                   , 'M44':1                                                             }
 
 # Import basic modules
-from math import cos, sin, radians
+from math import cos, sin, radians, degrees, sqrt, acos, atan2
 import re
 import itertools
 
@@ -100,16 +101,13 @@ from System.Windows.Forms import Application, Form, Label, ComboBox, Button, Tex
 from System.Drawing import Point, Size
 from System.Threading import ThreadStart, Thread
 
-# These below are global variables.
-global gangle, cangle, oldgangle, oldcangle
-global cx, cy, cz, oldcx, oldcy, oldcz
 
 class Part:
     """
     Class describing a 3D model file, that might be a part of the whole machine (treatment head or couch)
     """
 
-    def __init__(self, name, filename, color, active, movex=True, movey=True, movez=True):
+    def __init__(self, name, filename, color, active, movex=True, movey=True, movez=True, scissor=False):
         """
         Initialization of the object
         :param name: the identifier name of the part, it must be unique as it is used as a key, e.g. Nozzle.
@@ -127,6 +125,7 @@ class Part:
         self.moveX = movex
         self.moveY = movey
         self.moveZ = movez
+        self.scissor = scissor
 
 
 class Machine:
@@ -397,6 +396,15 @@ class TuneModelsForm(Form):
         button.Click += self.apply_button_clicked
         self.Controls.Add(button)
 
+        # Add button to press Flip in case of robot scissors
+        if len(lsci) >= 2:
+            button3 = Button()
+            button3.Text = 'Flip'
+            button3.AutoSize = True
+            button3.Location = Point(125, 390)
+            button3.Click += self.flip_button_clicked
+            self.Controls.Add(button3)
+
         # Add button to press Exit
         button2 = Button()
         button2.Text = 'Exit'
@@ -474,6 +482,17 @@ class TuneModelsForm(Form):
         """
         self.Close()
 
+    def flip_button_clicked(self, _sender, _event):
+        """
+        Method invoked when the Flip button is clicked. It toggles the flip boolean variable and calls the transform() function
+        :param: self the reference to the Form
+        :param: _sender  ignore
+        :param: _event ignore
+        """
+        global flip
+        flip = not flip
+        self.transform()
+
     def apply_button_clicked(self, _sender, _event):
         """
         Method invoked when the Apply button is clicked. It calls the transform() function
@@ -545,8 +564,12 @@ class TuneModelsForm(Form):
         if ok:
             global gangle
             global cangle
+            global bangle
+            global tangle
             global oldgangle
             global oldcangle
+            global oldbangle
+            global oldtangle
             global cx
             global oldcx
             global cy
@@ -555,11 +578,15 @@ class TuneModelsForm(Form):
             global oldcz
             oldgangle = gangle
             oldcangle = cangle
+            oldbangle = bangle
+            oldtangle = tangle
             oldcx = cx
             oldcy = cy
             oldcz = cz
             gangle = radians(float(ba))
             cangle = radians(float(ca))
+            bangle = 0  # to be determined later
+            tangle = 0  # to be determined later
             cx = float(x)
             cy = float(y)
             cz = float(z)
@@ -634,25 +661,101 @@ def transform_models():
                     'M31': cos(d)*cos(b)*sin(b2)+sin(b)*cos(b2), 'M32': -sin(d)*sin(b2), 'M33': -cos(d)*sin(b)*sin(b2)+cos(b)*cos(b2), 'M34': iso.z-iso.x*(cos(d)*cos(b)*sin(b2)+sin(b)*cos(b2))+iso.y*sin(d)*sin(b2)+iso.z*(cos(d)*sin(b)*sin(b2)-cos(b)*cos(b2)),
                     'M41': 0                                   , 'M42':  0             , 'M43':  0                                   , 'M44': 1                                                                                                                   })
     # Then, move the couch to a new position
-    if abs(cx - oldcx) > 0 or abs(cy - oldcy) or abs(cz-oldcz) > 0:
+    if abs(cx - oldcx) > 0 or abs(cy - oldcy) or abs(cz-oldcz) > 0 or abs(cangle-oldcangle) > 0:
         for part in couch.parts:
             if part.active:
                 roi_name = part.name
-                dx = cx-oldcx
-                dy = cy-oldcy
-                dz = cz-oldcz
+                dx = cx - oldcx
+                dy = cy - oldcy
+                dz = cz - oldcz
                 if not part.moveX:
                     dx = 0
                 if not part.moveY:
                     dy = 0
                 if not part.moveZ:
                     dz = 0
-                if abs(dx) > 0 or abs(dy) > 0 or abs(dz) > 0:
-                    case.PatientModel.RegionsOfInterest[roi_name].TransformROI3D(Examination=examination, TransformationMatrix={
-                        'M11': 1, 'M12': 0, 'M13': 0, 'M14': dx,
-                        'M21': 0, 'M22': 1, 'M23': 0, 'M24': dy,
-                        'M31': 0, 'M32': 0, 'M33': 1, 'M34': dz,
-                        'M41': 0, 'M42': 0, 'M43': 0, 'M44': 1})
+                if not part.scissor:
+                    if abs(dx) > 0 or abs(dy) > 0 or abs(dz) > 0:
+                        case.PatientModel.RegionsOfInterest[roi_name].TransformROI3D(Examination=examination, TransformationMatrix={
+                            'M11': 1, 'M12': 0, 'M13': 0, 'M14': dx,
+                            'M21': 0, 'M22': 1, 'M23': 0, 'M24': dy,
+                            'M31': 0, 'M32': 0, 'M33': 1, 'M34': dz,
+                            'M41': 0, 'M42': 0, 'M43': 0, 'M44': 1})
+
+    if len(lsci) >= 2:  # scissor robot defined. Distances below are hard coded for the moment
+        global bangle, tangle, oldbangle, oldtangle
+        bs = 170  # cm
+        lb = 120
+        lt = 100
+        rholim = lt + lb  # cm = 1.2 m plus 1 m
+        bx = iso.x - bs*sin(cs*cangle)
+        bz = iso.z + bs*cos(cs*cangle)
+        oldbx = iso.x - bs*sin(cs*oldcangle)
+        oldbz = iso.z + bs*cos(cs*oldcangle)
+        tx = iso.x + dx0 + cx
+        tz = iso.z + dz0 + cz
+        xd = bx - tx
+        zd = bz - tz
+        rho = sqrt(xd*xd + zd*zd)
+        failed = rho > rholim
+
+        if failed:
+            # no solution found
+            # put the base opposite to ISO and the top towards it
+            bangle = cangle + radians(180)
+            tangle = cangle
+        else:
+            # solve SSS triangle https://www.mathsisfun.com/algebra/trig-solving-sss-triangles.html
+            a = lt
+            b = lb
+            c = rho
+            alpha = acos((b*b+c*c-a*a)/2/b/c)
+            beta = acos((a*a+c*c-b*b)/2/c/a)
+            delta = atan2(xd,zd)
+            bangle = (delta + alpha)
+            tangle = -(beta - delta)
+            global flip
+            if flip:
+                bangle -= 2*alpha
+                tangle += 2*beta
+
+        for i, roi_name in enumerate(lsci):
+            part = [p for p in couch.parts if p.name == roi_name][0]
+            dx = cx - oldcx
+            dy = cy - oldcy
+            dz = cz - oldcz
+
+            if i == 0:
+                d = cs * (bangle - oldbangle)
+            elif i == 1:
+                d = cs * (tangle - oldtangle)
+            else:
+                d = cs * (cangle - oldcangle)
+
+            if not part.moveX:
+                dx = 0
+            if not part.moveY:
+                dy = 0
+            if not part.moveZ:
+                dz = 0
+
+            if i == 0:
+                rtpx = oldbx  # rotation point
+                rtpz = oldbz  # rotation point
+                dx = -bs*(sin(cs*cangle)-sin(cs*oldcangle))
+                dz =  bs*(cos(cs*cangle)-cos(cs*oldcangle))
+            elif i == 1:
+                rtpx = iso.x + dx0 + oldcx
+                rtpz = iso.z + dz0 + oldcz
+            else:
+                rtpx = iso.x
+                rtpz = iso.z
+
+            case.PatientModel.RegionsOfInterest[roi_name].TransformROI3D(Examination=examination, TransformationMatrix={
+                'M11': cos(d), 'M12': 0, 'M13': -sin(d), 'M14': rtpx - rtpx*cos(d) + rtpz*sin(d) + dx,
+                'M21': 0     , 'M22': 1, 'M23': 0      , 'M24': dy,
+                'M31': sin(d), 'M32': 0, 'M33':  cos(d), 'M34': rtpz - rtpx*sin(d) - rtpz*cos(d) + dz,
+                'M41': 0     , 'M42': 0, 'M43': 0      , 'M44': 1                                    })
 
 
 def remove_models():
@@ -667,7 +770,7 @@ def remove_models():
 
 
 # Start program
-if __name__ == '__main__':
+def main():
 
     # Define your 3D models and machines available at your institution
     agility = Machine("Elekta Agility", "Y:\\STL parts\\Elekta Agility\\",
@@ -694,11 +797,18 @@ if __name__ == '__main__':
                    Part("Head support", "HeadAdapter.stl", "Green", False),
                    ]
                   )
+    robot = Machine("Sciss Robot", "Y:\\STL parts\\Scissor Robot\\",
+                    [Part("Couch", "Couch.stl", "Green", True),
+                     Part("Scissor pedestal", "ScissorPedestal.stl", "Gray", True, False, True, False, True),
+                     Part("Scissor base", "ScissorBase.stl", "Gray", True, False, True, False, True),
+                     Part("Scissor top", "ScissorTop.stl", "White", True, True, True, True, True),
+                     ]
+                    )
 
     # Define the list of available treatment heads
     linacs = {agility.name: agility, proteus.name: proteus, trilogy.name: trilogy, truebeam.name: truebeam}
     # Define the list of available couches
-    couches = {evo.name: evo}
+    couches = {evo.name: evo, robot.name: robot}
 
     # GUI initialization. Some variables below are global
 
@@ -753,10 +863,10 @@ if __name__ == '__main__':
 
     # If there are more than one isocenter, ask the user to confirm which one to use
     global iso
-    if poi_lst.count(poi_type)>1:
-        isocenters = [r.Name for r in case.PatientModel.PointsOfInterest if r.Type==poi_type]
+    if poi_lst.count(poi_type) > 1:
+        isocenters = [r.Name for r in case.PatientModel.PointsOfInterest if r.Type == poi_type]
         print(isocenters)
-        isolist = {isocenters[i]:i for i in range(0, len(isocenters))}
+        isolist = {isocenters[i]: i for i in range(0, len(isocenters))}
         print(isolist)
         isoform = SelectListForm(isolist, "Isocenter")
         Application.Run(isoform)
@@ -765,16 +875,27 @@ if __name__ == '__main__':
         iso = structure_set.PoiGeometries[poi_lst.index(poi_type)].Point
 
     # Create first model at angles g=0,c=0.
+    # These below are global variables.
+    global gangle, cangle, bangle, tangle, oldgangle, oldcangle, oldbangle, oldtangle
+    global cx, cy, cz, oldcx, oldcy, oldcz
+    global flip
+    global lsci
     gangle = 0
     cangle = 0
+    bangle = 0
+    tangle = 0
     oldgangle = 0
     oldcangle = 0
+    oldbangle = 0
+    oldtangle = 0
     cx = 0
     cy = 0
     cz = 0
     oldcx = 0
     oldcy = 0
     oldcz = 0
+    flip = False
+    lsci = []
 
     # Remove previous ROIs if already defined, e.g. if previous program instance crashed or script was stopped. This prevents an error later when importing.
     # User is asked for individual removal confirmation, just in case someone defined a clinical ROI with by chance the same name than your model.
@@ -797,8 +918,8 @@ if __name__ == '__main__':
             case.PatientModel.CreateRoi(Name=roi_name, Color=roi_color, Type=roi_type)
             # import mesh from file
             geo = structure_set.RoiGeometries[roi_name]
-            a = gs*(gangle+g0)
-            b = cs*(cangle+c0)
+            a = gs*g0
+            b = cs*c0
             geo.ImportRoiGeometryFromSTL(FileName=file_name, UnitInFile='Millimeter',
                                          TransformationMatrix={'M11': cos(a)*cos(b), 'M12': -sin(a)*cos(b), 'M13': -sin(b), 'M14': iso.x,
                                                                'M21': sin(a)       , 'M22':  cos(a)       , 'M23':       0, 'M24': iso.y,
@@ -824,6 +945,15 @@ if __name__ == '__main__':
                                                                'M21': sin(a)       , 'M22':  cos(a)       , 'M23':       0, 'M24': iso.y,
                                                                'M31': cos(a)*sin(b), 'M32': -sin(a)*sin(b), 'M33':  cos(b), 'M34': iso.z,
                                                                'M41':             0, 'M42':              0, 'M43':       0, 'M44':     1})
+
+    # Check if a scissor robot is defined and store their part names in a list, being the first element the base, and the second element the top part,
+    # and the third element the pedestal, if any
+    auxlist = [p.name for p in couch.parts if p.scissor and p.active]
+    lsci = []
+    if len(auxlist) >= 2:
+        lsci.append([pname for pname in auxlist if "base" in pname][0])
+        lsci.append([pname for pname in auxlist if "top" in pname][0])
+        lsci.append([pname for pname in auxlist if "pedestal" in pname][0])
 
     # Get list contoured couch ROIs here, ie. whose name contain couch (case insensitive)
     couch_lst = [r.Name for r in case.PatientModel.RegionsOfInterest if r.Type == 'Support' if re.search('couch', r.Name, re.IGNORECASE)]
@@ -851,6 +981,8 @@ if __name__ == '__main__':
             mz = mb[0].z
 
             # Move all couch parts to close the difference
+            global dx0
+            global dz0
             dx0 = rx-mx
             dy0 = ry-my
             dz0 = rz-mz
@@ -866,12 +998,23 @@ if __name__ == '__main__':
                         dy = 0
                     if not part.moveZ:
                         dz = 0
-                    case.PatientModel.RegionsOfInterest[roi_name].TransformROI3D(Examination=examination, TransformationMatrix={
-                        'M11': 1, 'M12': 0, 'M13': 0, 'M14': dx,
-                        'M21': 0, 'M22': 1, 'M23': 0, 'M24': dy,
-                        'M31': 0, 'M32': 0, 'M33': 1, 'M34': dz,
-                        'M41': 0, 'M42': 0, 'M43': 0, 'M44': 1})
+                    if not part.scissor:
+                        case.PatientModel.RegionsOfInterest[roi_name].TransformROI3D(Examination=examination, TransformationMatrix={
+                            'M11': 1, 'M12': 0, 'M13': 0, 'M14': dx,
+                            'M21': 0, 'M22': 1, 'M23': 0, 'M24': dy,
+                            'M31': 0, 'M32': 0, 'M33': 1, 'M34': dz,
+                            'M41': 0, 'M42': 0, 'M43': 0, 'M44': 1})
+                    else:
+                        case.PatientModel.RegionsOfInterest[roi_name].TransformROI3D(Examination=examination, TransformationMatrix={
+                            'M11': 1, 'M12': 0, 'M13': 0, 'M14': dx,
+                            'M21': 0, 'M22': 1, 'M23': 0, 'M24': dy,
+                            'M31': 0, 'M32': 0, 'M33': 1, 'M34': dz,
+                            'M41': 0, 'M42': 0, 'M43': 0, 'M44': 1})
 
     thread = Thread(ThreadStart(tune_models))
     thread.Start()
     thread.Join()
+
+
+if __name__ == '__main__':
+    main()
