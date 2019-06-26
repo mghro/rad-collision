@@ -24,7 +24,7 @@ How to use
 ----------
 
 - Create a new script in RayStation and paste the contents of collision_detection.py
-- Modify the path where the STL files are stored, to point at your own server
+- Modify the path where the STL files are stored, to point at your own drive
 
 
 3D model format
