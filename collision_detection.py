@@ -773,7 +773,7 @@ def remove_models():
 def main():
 
     # Define your 3D models and machines available at your institution
-    agility = Machine("Elekta Agility", "Y:\\STL parts\\Elekta Agility\\",
+    agility = Machine("Elekta Agility", "Y:\\ydrive\\STL parts\\Elekta Agility\\",
                       [Part("Nozzle", "RotatingHeads.stl", "Blue", True),
                        Part("Electron cone 15cm x 15cm", "ElectronApplicator.stl", "Blue", False),
                        Part("Flat panel left", "FlatPanelExtensionLeft.stl", "Blue", False),
@@ -781,11 +781,11 @@ def main():
                        Part("CBCT source", "CBCTsource.stl", "Blue", False)
                        ]
                       )
-    proteus = Machine("iba Proteus", "Y:\\STL parts\\iba Proteus\\", [Part("Nozzle", "NozzleWithSmallSnout.stl", "Blue", True)])
-    trilogy = Machine("Varian IX Trilogy", "Y:\\STL parts\\Varian IX Trilogy\\", [Part("Nozzle", "RotatingHeads.stl", "Blue", True)])
-    truebeam = Machine("Varian TrueBeam", "Y:\\STL parts\\Varian TrueBeam\\", [Part("Nozzle", "RotatingHeads.stl", "Blue", True)])
+    proteus = Machine("iba Proteus", "Y:\\ydrive\\STL parts\\iba Proteus\\", [Part("Nozzle", "NozzleWithSmallSnout.stl", "Blue", True)])
+    trilogy = Machine("Varian IX Trilogy", "Y:\\ydrive\\STL parts\\Varian IX Trilogy\\", [Part("Nozzle", "RotatingHeads.stl", "Blue", True)])
+    truebeam = Machine("Varian TrueBeam", "Y:\\ydrive\\STL parts\\Varian TrueBeam\\", [Part("Nozzle", "RotatingHeads.stl", "Blue", True)])
     # For the couch model, you can specify which subparts are fixed in x, y, z coordinates, i.e. do not translate when moving the upper part of the couch
-    evo = Machine("Hexapod Evo", "Y:\\STL parts\\Hexapod Evo\\",
+    evo = Machine("Hexapod Evo", "Y:\\ydrive\\STL parts\\Hexapod Evo\\",
                   [Part("Couch", "Hexapod.stl", "Green", True),
                    Part("Couch base top", "CouchBaseFwd.stl", "Green", False),
                    Part("Couch base middle", "CouchBase.stl", "Green", False, True, True, False),
@@ -797,7 +797,7 @@ def main():
                    Part("Head support", "HeadAdapter.stl", "Green", False),
                    ]
                   )
-    robot = Machine("Sciss Robot", "Y:\\STL parts\\Scissor Robot\\",
+    robot = Machine("Sciss Robot", "Y:\\ydrive\\STL parts\\Scissor Robot\\",
                     [Part("Couch", "Couch.stl", "Green", True),
                      Part("Scissor pedestal", "ScissorPedestal.stl", "Gray", True, False, True, False, True),
                      Part("Scissor base", "ScissorBase.stl", "Gray", True, False, True, False, True),
