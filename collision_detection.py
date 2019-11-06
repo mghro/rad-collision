@@ -107,7 +107,7 @@ class Part:
     Class describing a 3D model file, that might be a part of the whole machine (treatment head or couch)
     """
 
-    def __init__(self, name, filename, color, active, movex=True, movey=True, movez=True, scissor=False):
+    def __init__(self, name, filename, color, active, movex=True, movey=True, movez=True, scissor=False, retractable=False):
         """
         Initialization of the object
         :param name: the identifier name of the part, it must be unique as it is used as a key, e.g. Nozzle.
@@ -117,6 +117,8 @@ class Part:
         :param movex: flag to activate or deactivate the translation of this part along the x coordinate
         :param movey: flag to activate or deactivate the translation of this part along the y coordinate
         :param movez: flag to activate or deactivate the translation of this part along the z coordinate
+        :param scissor: if this part is a scissor Robot
+        :param retractable: flag to signal if this part is retractable, i.e. a snout or range shifter in the nozzle
         """
         self.name = name
         self.filename = filename
@@ -126,6 +128,7 @@ class Part:
         self.moveY = movey
         self.moveZ = movez
         self.scissor = scissor
+        self.retractable = retractable
 
 
 class Machine:
@@ -263,7 +266,7 @@ class TuneModelsForm(Form):
         """
         self.StartupPosition = FormStartPosition.Manual
         self.Location = Point(500, 15)
-        self.Size = Size(500, 475)  # Set the size of the form
+        self.Size = Size(500, 575 if extraction else 475)  # Set the size of the form
         self.Text = 'Tune 3D model positions'  # Set title of the form
         self.TopMost = True
 
@@ -290,7 +293,7 @@ class TuneModelsForm(Form):
         self.tbB.Maximum = 360
         self.tbB.Value = 0
         self.tbB.Size = Size(360, 25)
-        self.tbB.Location = Point(100, 60)
+        self.tbB.Location = Point(100, 60-5)
         self.tbB.ValueChanged += self.updatetbox_b
         self.Controls.Add(self.tbB)
 
@@ -317,7 +320,7 @@ class TuneModelsForm(Form):
         self.tbC.Maximum = 90
         self.tbC.Value = 0
         self.tbC.Size = Size(360, 25)
-        self.tbC.Location = Point(100, 160)
+        self.tbC.Location = Point(100, 160-5)
         self.tbC.ValueChanged += self.updatetbox_c
         self.Controls.Add(self.tbC)
 
@@ -344,7 +347,7 @@ class TuneModelsForm(Form):
         self.tbX.Maximum = 100
         self.tbX.Value = 0
         self.tbX.Size = Size(360, 25)
-        self.tbX.Location = Point(100, 260)
+        self.tbX.Location = Point(100, 260-5)
         self.tbX.ValueChanged += self.updatetbox_x
         self.Controls.Add(self.tbX)
 
@@ -364,7 +367,7 @@ class TuneModelsForm(Form):
         self.tbY.Maximum = 250
         self.tbY.Value = 0
         self.tbY.Size = Size(360, 25)
-        self.tbY.Location = Point(100, 300)
+        self.tbY.Location = Point(100, 300-5)
         self.tbY.ValueChanged += self.updatetbox_y
         self.Controls.Add(self.tbY)
 
@@ -384,15 +387,47 @@ class TuneModelsForm(Form):
         self.tbZ.Maximum = 500
         self.tbZ.Value = 0
         self.tbZ.Size = Size(360, 25)
-        self.tbZ.Location = Point(100, 340)
+        self.tbZ.Location = Point(100, 340-5)
         self.tbZ.ValueChanged += self.updatetbox_z
         self.Controls.Add(self.tbZ)
+
+        lastPos = 340
+
+        if extraction:
+            # Add a retraction label
+            label_ext = Label()
+            label_ext.Text = 'Please select snout extraction  [mm].'
+            label_ext.Location = Point(15, 395)
+            label_ext.AutoSize = True
+            self.Controls.Add(label_ext)
+
+            # Add a text box to write the desired couch x position
+            self.tboxE = TextBox()
+            self.tboxE.Location = Point(15, 440)
+            self.tboxE.Width = 55
+            self.tboxE.Text = "0"
+            self.tboxE.KeyDown += self.on_enter
+            self.Controls.Add(self.tboxE)
+
+            # Add a trackbar to slide to the desired couch x position
+            self.tbE = TrackBar()
+            self.tbE.TickStyle = TickStyle.Both
+            self.tbE.TickFrequency = 40
+            self.tbE.Minimum = 0
+            self.tbE.Maximum = 800
+            self.tbE.Value = 0
+            self.tbE.Size = Size(360, 25)
+            self.tbE.Location = Point(100, 440-5)
+            self.tbE.ValueChanged += self.updatetbox_e
+            self.Controls.Add(self.tbE)
+
+            lastPos = 440
 
         # Add button to press Apply
         button = Button()
         button.Text = 'Apply'
         button.AutoSize = True
-        button.Location = Point(15, 390)
+        button.Location = Point(15, lastPos+50)
         button.Click += self.apply_button_clicked
         self.Controls.Add(button)
 
@@ -401,7 +436,7 @@ class TuneModelsForm(Form):
             button3 = Button()
             button3.Text = 'Flip'
             button3.AutoSize = True
-            button3.Location = Point(125, 390)
+            button3.Location = Point(125, lastPos+50)
             button3.Click += self.flip_button_clicked
             self.Controls.Add(button3)
 
@@ -409,7 +444,7 @@ class TuneModelsForm(Form):
         button2 = Button()
         button2.Text = 'Exit'
         button2.AutoSize = True
-        button2.Location = Point(375, 390)
+        button2.Location = Point(375, lastPos+50)
         button2.Click += self.exit_button_clicked
         self.Controls.Add(button2)
 
@@ -473,6 +508,16 @@ class TuneModelsForm(Form):
         self.tboxZ.Text = str(self.tbZ.Value)
         self.transform()
 
+    def updatetbox_e(self, _sender, _event):
+        """
+        Method invoked when the extraction slider is moved. Updates the text box and calls transform()
+        :param: self the reference to the Form
+        :param: _sender  ignore
+        :param: _event ignore
+        """
+        self.tboxE.Text = str(self.tbE.Value)
+        self.transform()
+
     def exit_button_clicked(self, _sender, _event):
         """
         Method invoked when the Exit button is clicked. It closes the form.
@@ -514,6 +559,7 @@ class TuneModelsForm(Form):
         x = self.tboxX.Text
         y = self.tboxY.Text
         z = self.tboxZ.Text
+        e = self.tboxE.Text
 
         # Sanity check that we are in the correct range
         ok = True
@@ -534,8 +580,12 @@ class TuneModelsForm(Form):
             self.tboxY.Text = y
             ok = False
         if z == "" or float(z) < self.tbZ.Minimum:
-            y = str(int(self.tbZ.Minimum))
+            z = str(int(self.tbZ.Minimum))
             self.tboxZ.Text = z
+            ok = False
+        if e == "" or float(e) < self.tbE.Minimum:
+            e = str(int(self.tbE.Minimum))
+            self.tboxE.Text = e
             ok = False
         if float(ba) > self.tbB.Maximum:
             ba = str(int(self.tbB.Maximum))
@@ -557,6 +607,10 @@ class TuneModelsForm(Form):
             z = str(int(self.tbZ.Maximum))
             self.tboxZ.Text = z
             ok = False
+        if float(e) > self.tbE.Maximum:
+            e = str(int(self.tbE.Maximum))
+            self.tboxE.Text = e
+            ok = False
 
         self.update_sliders()  # Update slider position
 
@@ -576,6 +630,8 @@ class TuneModelsForm(Form):
             global oldcy
             global cz
             global oldcz
+            global se
+            global oldse
             oldgangle = gangle
             oldcangle = cangle
             oldbangle = bangle
@@ -583,6 +639,7 @@ class TuneModelsForm(Form):
             oldcx = cx
             oldcy = cy
             oldcz = cz
+            oldse = se
             gangle = radians(float(ba))
             cangle = radians(float(ca))
             bangle = 0  # to be determined later
@@ -590,10 +647,12 @@ class TuneModelsForm(Form):
             cx = float(x)
             cy = float(y)
             cz = float(z)
+            se = float(e)
             # Convert couch deviation to cm (RayStation coordinates)
             cx /= 10.
             cy /= 10.
             cz /= 10.
+            se /= 10.
             # Transform the models
             transform_models()
 
@@ -609,6 +668,7 @@ class TuneModelsForm(Form):
         newx = round(float(self.tboxX.Text))
         newy = round(float(self.tboxY.Text))
         newz = round(float(self.tboxZ.Text))
+        newe = round(float(self.tboxE.Text))
         # If different from trackbar value, disconnect temporarily from slots and update the value
         if abs(newb-self.tbB.Value) > 0:
             self.tbB.ValueChanged -= self.updatetbox_b
@@ -630,7 +690,10 @@ class TuneModelsForm(Form):
             self.tbZ.ValueChanged -= self.updatetbox_z
             self.tbZ.Value = newz
             self.tbZ.ValueChanged += self.updatetbox_z
-
+        if abs(newe - self.tbE.Value) > 0:
+            self.tbE.ValueChanged -= self.updatetbox_e
+            self.tbE.Value = newe
+            self.tbE.ValueChanged += self.updatetbox_e
 
 def tune_models():
     """
@@ -648,18 +711,19 @@ def transform_models():
     This function transforms the imported 3D models to match a new gantry and couch angle, or couch position
     """
     # First, rotate the treatment head to the new angle
-    if abs(cangle - oldcangle) > 0 or abs(gangle - oldgangle) > 0:
+    if abs(cangle - oldcangle) > 0 or abs(gangle - oldgangle) > 0 or abs(se - oldse) > 0:
         for part in linac.parts:
             if part.active:
                 roi_name = part.name
                 b = -cs*(oldcangle+c0)
                 b2 = cs*(cangle+c0)
                 d = gs*(gangle - oldgangle)  # g0 cancels
+                ey = gs*(se - oldse) if part.retractable else 0
                 case.PatientModel.RegionsOfInterest[roi_name].TransformROI3D(Examination=examination, TransformationMatrix={
-                    'M11': cos(d)*cos(b)*cos(b2)-sin(b)*sin(b2), 'M12': -sin(d)*cos(b2), 'M13': -cos(d)*sin(b)*cos(b2)-cos(b)*sin(b2), 'M14': iso.x-iso.x*(cos(d)*cos(b)*cos(b2)-sin(b)*sin(b2))+iso.y*sin(d)*cos(b2)+iso.z*(cos(d)*sin(b)*cos(b2)+cos(b)*sin(b2)),
-                    'M21': sin(d)*cos(b)                       , 'M22':  cos(d)        , 'M23': -sin(d)*sin(b)                       , 'M24': iso.y-iso.x* sin(d)*cos(b)                        -iso.y*cos(d)        +iso.z* sin(d)*sin(b)                        ,
-                    'M31': cos(d)*cos(b)*sin(b2)+sin(b)*cos(b2), 'M32': -sin(d)*sin(b2), 'M33': -cos(d)*sin(b)*sin(b2)+cos(b)*cos(b2), 'M34': iso.z-iso.x*(cos(d)*cos(b)*sin(b2)+sin(b)*cos(b2))+iso.y*sin(d)*sin(b2)+iso.z*(cos(d)*sin(b)*sin(b2)-cos(b)*cos(b2)),
-                    'M41': 0                                   , 'M42':  0             , 'M43':  0                                   , 'M44': 1                                                                                                                   })
+                    'M11': cos(d)*cos(b)*cos(b2)-sin(b)*sin(b2), 'M12': -sin(d)*cos(b2), 'M13': -cos(d)*sin(b)*cos(b2)-cos(b)*sin(b2), 'M14': iso.x-iso.x*(cos(d)*cos(b)*cos(b2)-sin(b)*sin(b2))+iso.y*sin(d)*cos(b2)+iso.z*(cos(d)*sin(b)*cos(b2)+cos(b)*sin(b2))    ,
+                    'M21': sin(d)*cos(b)                       , 'M22':  cos(d)        , 'M23': -sin(d)*sin(b)                       , 'M24': iso.y-iso.x* sin(d)*cos(b)                        -iso.y*cos(d)        +iso.z* sin(d)*sin(b)                        - ey,
+                    'M31': cos(d)*cos(b)*sin(b2)+sin(b)*cos(b2), 'M32': -sin(d)*sin(b2), 'M33': -cos(d)*sin(b)*sin(b2)+cos(b)*cos(b2), 'M34': iso.z-iso.x*(cos(d)*cos(b)*sin(b2)+sin(b)*cos(b2))+iso.y*sin(d)*sin(b2)+iso.z*(cos(d)*sin(b)*sin(b2)-cos(b)*cos(b2))    ,
+                    'M41': 0                                   , 'M42':  0             , 'M43':  0                                   , 'M44': 1                                                                                                                      })
     # Then, move the couch to a new position
     if abs(cx - oldcx) > 0 or abs(cy - oldcy) or abs(cz-oldcz) > 0 or abs(cangle-oldcangle) > 0:
         for part in couch.parts:
@@ -781,7 +845,14 @@ def main():
                        Part("CBCT source", "CBCTsource.stl", "Blue", False)
                        ]
                       )
-    proteus = Machine("iba Proteus", "Y:\\ydrive\\STL parts\\iba Proteus\\", [Part("Nozzle", "NozzleWithSmallSnout.stl", "Blue", True)])
+    proteus = Machine("iba Proteus", "Y:\\ydrive\\STL parts\\iba Proteus\\",
+                      # [Part("Nozzle", "NozzleWithSmallSnout.stl", "Blue", True),
+                      [Part("Nozzle", "Nozzle.stl", "Blue", True),
+                       Part("Snout 18 cm", "Snout18cm.stl", "Blue", True, retractable=True),
+                       Part("Range shifter 80mm 18cm", "RangeShifter80mm_18cm.stl", "Blue", False, retractable=True),
+                       ]
+                      )
+
     trilogy = Machine("Varian IX Trilogy", "Y:\\ydrive\\STL parts\\Varian IX Trilogy\\", [Part("Nozzle", "RotatingHeads.stl", "Blue", True)])
     truebeam = Machine("Varian TrueBeam", "Y:\\ydrive\\STL parts\\Varian TrueBeam\\", [Part("Nozzle", "RotatingHeads.stl", "Blue", True)])
     # For the couch model, you can specify which subparts are fixed in x, y, z coordinates, i.e. do not translate when moving the upper part of the couch
@@ -837,11 +908,13 @@ def main():
     case = get_current('Case')
     global examination
     examination = get_current('Examination')
+    global structure_set
     structure_set = case.PatientModel.StructureSets[examination.Name]
     orientation = examination.PatientPosition
 
     # A rotation angle offset in degrees of the 3D model is needed to match the CT orientation depending on PatientPosition attribute
     # Also, a correction of the rotation direction is needed depending on the patient orientation.
+    # TODO: change this and read instead the PatientOrientationMatrix from the DICOM CT
     gantry_angle_offset = {'HFS': 180, 'FFS': 180, 'HFP':   0, 'FFP':  0}
     couch_angle_offset =  {'HFS': 180, 'FFS':   0, 'HFP': 180, 'FFP':  0}
     gantry_direction =    {'HFS':  -1, 'FFS':  -1, 'HFP':  -1, 'FFP': -1}
@@ -875,9 +948,10 @@ def main():
         iso = structure_set.PoiGeometries[poi_lst.index(poi_type)].Point
 
     # Create first model at angles g=0,c=0.
-    # These below are global variables.
+    # These below are global variables describing gantry angle (gangle), couch angle (cangle), couch position (cx,cy,cz), snout extration (se), and the old value before changing it.
+    # tangle, bangle, lsci and flip are used just for scissor robot
     global gangle, cangle, bangle, tangle, oldgangle, oldcangle, oldbangle, oldtangle
-    global cx, cy, cz, oldcx, oldcy, oldcz
+    global cx, cy, cz, se, oldcx, oldcy, oldcz, oldce
     global flip
     global lsci
     gangle = 0
@@ -891,9 +965,11 @@ def main():
     cx = 0
     cy = 0
     cz = 0
+    se = 0
     oldcx = 0
     oldcy = 0
     oldcz = 0
+    oldse = 0
     flip = False
     lsci = []
 
@@ -1010,6 +1086,9 @@ def main():
                             'M21': 0, 'M22': 1, 'M23': 0, 'M24': dy,
                             'M31': 0, 'M32': 0, 'M33': 1, 'M34': dz,
                             'M41': 0, 'M42': 0, 'M43': 0, 'M44': 1})
+
+    global extraction
+    extraction = any([part.retractable for part in linac.parts if part.active])
 
     thread = Thread(ThreadStart(tune_models))
     thread.Start()
