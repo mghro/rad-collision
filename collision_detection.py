@@ -1129,6 +1129,7 @@ def main():
     thread.Join()
     if colthread.IsAlive:
         colthread.Abort()
+        colthread.Join()
 
 if __name__ == '__main__':
     main()
