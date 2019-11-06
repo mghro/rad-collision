@@ -391,7 +391,7 @@ class TuneModelsForm(Form):
         self.tbZ.ValueChanged += self.updatetbox_z
         self.Controls.Add(self.tbZ)
 
-        lastPos = 340
+        lastpos = 340
 
         if extraction:
             # Add a retraction label
@@ -421,13 +421,13 @@ class TuneModelsForm(Form):
             self.tbE.ValueChanged += self.updatetbox_e
             self.Controls.Add(self.tbE)
 
-            lastPos = 440
+            lastpos = 440
 
         # Add button to press Apply
         button = Button()
         button.Text = 'Apply'
         button.AutoSize = True
-        button.Location = Point(15, lastPos+50)
+        button.Location = Point(15, lastpos+50)
         button.Click += self.apply_button_clicked
         self.Controls.Add(button)
 
@@ -436,7 +436,7 @@ class TuneModelsForm(Form):
             button3 = Button()
             button3.Text = 'Flip'
             button3.AutoSize = True
-            button3.Location = Point(125, lastPos+50)
+            button3.Location = Point(125, lastpos+50)
             button3.Click += self.flip_button_clicked
             self.Controls.Add(button3)
 
@@ -444,7 +444,7 @@ class TuneModelsForm(Form):
         button2 = Button()
         button2.Text = 'Exit'
         button2.AutoSize = True
-        button2.Location = Point(375, lastPos+50)
+        button2.Location = Point(375, lastpos+50)
         button2.Click += self.exit_button_clicked
         self.Controls.Add(button2)
 
@@ -559,7 +559,7 @@ class TuneModelsForm(Form):
         x = self.tboxX.Text
         y = self.tboxY.Text
         z = self.tboxZ.Text
-        e = self.tboxE.Text
+        e = self.tboxE.Text if extraction else "0"
 
         # Sanity check that we are in the correct range
         ok = True
@@ -583,10 +583,11 @@ class TuneModelsForm(Form):
             z = str(int(self.tbZ.Minimum))
             self.tboxZ.Text = z
             ok = False
-        if e == "" or float(e) < self.tbE.Minimum:
-            e = str(int(self.tbE.Minimum))
-            self.tboxE.Text = e
-            ok = False
+        if extraction:
+            if e == "" or float(e) < self.tbE.Minimum:
+                e = str(int(self.tbE.Minimum))
+                self.tboxE.Text = e
+                ok = False
         if float(ba) > self.tbB.Maximum:
             ba = str(int(self.tbB.Maximum))
             self.tboxB.Text = ba
@@ -607,10 +608,11 @@ class TuneModelsForm(Form):
             z = str(int(self.tbZ.Maximum))
             self.tboxZ.Text = z
             ok = False
-        if float(e) > self.tbE.Maximum:
-            e = str(int(self.tbE.Maximum))
-            self.tboxE.Text = e
-            ok = False
+        if extraction:
+            if float(e) > self.tbE.Maximum:
+                e = str(int(self.tbE.Maximum))
+                self.tboxE.Text = e
+                ok = False
 
         self.update_sliders()  # Update slider position
 
@@ -668,7 +670,7 @@ class TuneModelsForm(Form):
         newx = round(float(self.tboxX.Text))
         newy = round(float(self.tboxY.Text))
         newz = round(float(self.tboxZ.Text))
-        newe = round(float(self.tboxE.Text))
+        newe = round(float(self.tboxE.Text)) if extraction else 0
         # If different from trackbar value, disconnect temporarily from slots and update the value
         if abs(newb-self.tbB.Value) > 0:
             self.tbB.ValueChanged -= self.updatetbox_b
@@ -690,10 +692,12 @@ class TuneModelsForm(Form):
             self.tbZ.ValueChanged -= self.updatetbox_z
             self.tbZ.Value = newz
             self.tbZ.ValueChanged += self.updatetbox_z
-        if abs(newe - self.tbE.Value) > 0:
-            self.tbE.ValueChanged -= self.updatetbox_e
-            self.tbE.Value = newe
-            self.tbE.ValueChanged += self.updatetbox_e
+        if extraction:
+            if abs(newe - self.tbE.Value) > 0:
+                self.tbE.ValueChanged -= self.updatetbox_e
+                self.tbE.Value = newe
+                self.tbE.ValueChanged += self.updatetbox_e
+
 
 def tune_models():
     """
@@ -711,6 +715,7 @@ def transform_models():
     This function transforms the imported 3D models to match a new gantry and couch angle, or couch position
     """
     # First, rotate the treatment head to the new angle
+    moved = False
     if abs(cangle - oldcangle) > 0 or abs(gangle - oldgangle) > 0 or abs(se - oldse) > 0:
         for part in linac.parts:
             if part.active:
@@ -724,6 +729,7 @@ def transform_models():
                     'M21': sin(d)*cos(b)                       , 'M22':  cos(d)        , 'M23': -sin(d)*sin(b)                       , 'M24': iso.y-iso.x* sin(d)*cos(b)                        -iso.y*cos(d)        +iso.z* sin(d)*sin(b)                        - ey,
                     'M31': cos(d)*cos(b)*sin(b2)+sin(b)*cos(b2), 'M32': -sin(d)*sin(b2), 'M33': -cos(d)*sin(b)*sin(b2)+cos(b)*cos(b2), 'M34': iso.z-iso.x*(cos(d)*cos(b)*sin(b2)+sin(b)*cos(b2))+iso.y*sin(d)*sin(b2)+iso.z*(cos(d)*sin(b)*sin(b2)-cos(b)*cos(b2))    ,
                     'M41': 0                                   , 'M42':  0             , 'M43':  0                                   , 'M44': 1                                                                                                                      })
+                moved = True
     # Then, move the couch to a new position
     if abs(cx - oldcx) > 0 or abs(cy - oldcy) or abs(cz-oldcz) > 0 or abs(cangle-oldcangle) > 0:
         for part in couch.parts:
@@ -745,6 +751,7 @@ def transform_models():
                             'M21': 0, 'M22': 1, 'M23': 0, 'M24': dy,
                             'M31': 0, 'M32': 0, 'M33': 1, 'M34': dz,
                             'M41': 0, 'M42': 0, 'M43': 0, 'M44': 1})
+                        moved = True
 
     if len(lsci) >= 2:  # scissor robot defined. Distances below are hard coded for the moment
         global bangle, tangle, oldbangle, oldtangle
@@ -775,7 +782,7 @@ def transform_models():
             c = rho
             alpha = acos((b*b+c*c-a*a)/2/b/c)
             beta = acos((a*a+c*c-b*b)/2/c/a)
-            delta = atan2(xd,zd)
+            delta = atan2(xd, zd)
             bangle = (delta + alpha)
             tangle = -(beta - delta)
             global flip
@@ -820,6 +827,15 @@ def transform_models():
                 'M21': 0     , 'M22': 1, 'M23': 0      , 'M24': dy,
                 'M31': sin(d), 'M32': 0, 'M33':  cos(d), 'M34': rtpz - rtpx*sin(d) - rtpz*cos(d) + dz,
                 'M41': 0     , 'M42': 0, 'M43': 0      , 'M44': 1                                    })
+            moved = True
+
+    if moved:
+        global colthread
+        if colthread.IsAlive:
+            colthread.Abort()
+            colthread.Join()
+        colthread = Thread(ThreadStart(detect_collision))
+        colthread.Start()
 
 
 def remove_models():
@@ -833,8 +849,21 @@ def remove_models():
             case.PatientModel.RegionsOfInterest[roi_name].DeleteRoi()
 
 
-# Start program
+def detect_collision():
+    """
+    This function is used for automatic collision detection
+    """
+    try:
+        print('Started')
+    finally:
+        Thread.Sleep(5000)
+        print('Finished')
+
+
 def main():
+    """
+    Start program
+    """
 
     # Define your 3D models and machines available at your institution
     agility = Machine("Elekta Agility", "Y:\\ydrive\\STL parts\\Elekta Agility\\",
@@ -951,7 +980,7 @@ def main():
     # These below are global variables describing gantry angle (gangle), couch angle (cangle), couch position (cx,cy,cz), snout extration (se), and the old value before changing it.
     # tangle, bangle, lsci and flip are used just for scissor robot
     global gangle, cangle, bangle, tangle, oldgangle, oldcangle, oldbangle, oldtangle
-    global cx, cy, cz, se, oldcx, oldcy, oldcz, oldce
+    global cx, cy, cz, se, oldcx, oldcy, oldcz, oldse
     global flip
     global lsci
     gangle = 0
@@ -1090,10 +1119,16 @@ def main():
     global extraction
     extraction = any([part.retractable for part in linac.parts if part.active])
 
+    # Collision detection thread
+    global colthread
+    colthread = Thread(ThreadStart(detect_collision))
+
+    # Tuning form thread
     thread = Thread(ThreadStart(tune_models))
     thread.Start()
     thread.Join()
-
+    if colthread.IsAlive:
+        colthread.Abort()
 
 if __name__ == '__main__':
     main()
