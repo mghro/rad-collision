@@ -14,7 +14,7 @@
 # For example:
 # F:\\STL models\\
 #                 LINAC\\
-#                        Nozzle.stl
+#                        Gantry.stl
 #                        XrayPanel.stl
 #                 Couch\\
 #                        Hexapod.stl
@@ -112,7 +112,7 @@ class Part:
     def __init__(self, name, filename, color, active, movex=True, movey=True, movez=True, scissor=False, retractable=False):
         """
         Initialization of the object
-        :param name: the identifier name of the part, it must be unique as it is used as a key, e.g. Nozzle.
+        :param name: the identifier name of the part, it must be unique as it is used as a key, e.g. Gantry.
         :param filename: the name of the STL file within the folder you stored it
         :param color: the color of the ROI once the model is imported into Raystation
         :param active: flag to activate or deactivate the import of this specific part of the whole machine
@@ -1029,7 +1029,7 @@ def main():
 
     # Define your 3D models and machines available at your institution
     agility = Machine("Elekta Agility", "Y:\\ydrive\\STL parts\\Elekta Agility\\",
-                      [Part("Nozzle", "RotatingHeads.stl", "Blue", True),
+                      [Part("Gantry", "RotatingHeads.stl", "Blue", True),
                        Part("Electron cone 15cm x 15cm", "ElectronApplicator.stl", "Blue", False),
                        Part("Flat panel left", "FlatPanelExtensionLeft.stl", "Blue", False),
                        Part("Flat panel bottom", "FlatPanelExtension.stl", "Blue", False),
@@ -1044,8 +1044,8 @@ def main():
                        ]
                       )
 
-    trilogy = Machine("Varian IX Trilogy", "Y:\\ydrive\\STL parts\\Varian IX Trilogy\\", [Part("Nozzle", "RotatingHeads.stl", "Blue", True)])
-    truebeam = Machine("Varian TrueBeam", "Y:\\ydrive\\STL parts\\Varian TrueBeam\\", [Part("Nozzle", "RotatingHeads.stl", "Blue", True)])
+    trilogy = Machine("Varian IX Trilogy", "Y:\\ydrive\\STL parts\\Varian IX Trilogy\\", [Part("Gantry", "RotatingHeads.stl", "Blue", True)])
+    truebeam = Machine("Varian TrueBeam", "Y:\\ydrive\\STL parts\\Varian TrueBeam\\", [Part("Gantry", "RotatingHeads.stl", "Blue", True)])
     # For the couch model, you can specify which subparts are fixed in x, y, z coordinates, i.e. do not translate when moving the upper part of the couch
     evo = Machine("Hexapod Evo", "Y:\\ydrive\\STL parts\\Hexapod Evo\\",
                   [Part("Couch", "Hexapod.stl", "Green", True),
