@@ -1184,6 +1184,8 @@ def main():
             roi_name = part.name
             if roi_name in roi_lst:
                 await_user_input('Confirm deletion of preexisting ROI "' + roi_name + '" by clicking on Resume Script. Otherwise click Stop Script.')
+                # If this happens because previous script instance was stopped abruptly, so that imported ROIs were not erased, just click on Resume
+                # If this happens because planner defined an ROI with same name as imported model, click stop and rename 3D model, or the planner contoured ROI
                 case.PatientModel.RegionsOfInterest[roi_name].DeleteRoi()
 
     # Create now treatment head ROIs and import STL models. Gantry and couch angle will be zero, and model will be centered at iso
