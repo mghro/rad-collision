@@ -91,16 +91,17 @@
 from math import cos, sin, radians, degrees, sqrt, acos, atan2
 import re
 import itertools
+from collections import OrderedDict
 
 # Import RayStation modules and WinForms for GUI
 from connect import *
 import clr
 clr.AddReference("System.Windows.Forms")
 clr.AddReference("System.Drawing")
-from System.Windows.Forms import Application, Form, Label, ComboBox, Button, TextBox, TrackBar, FormStartPosition, TickStyle, Keys, CheckBox
-from System.Drawing import Point, Size
-from System.Threading import ThreadStart, Thread
-
+from System.Windows.Forms import Application, Form, Label, ComboBox, Button, TextBox, TrackBar, FormStartPosition, TickStyle, Keys, CheckBox, GroupBox#, DataGridView
+from System.Drawing import Point, Size, Color#, SolidBrush, Graphics
+from System.Threading import ParameterizedThreadStart, ThreadStart, Thread, ThreadInterruptedException, ThreadAbortException
+from System.Environment import ProcessorCount
 
 class Part:
     """
@@ -266,7 +267,11 @@ class TuneModelsForm(Form):
         """
         self.StartupPosition = FormStartPosition.Manual
         self.Location = Point(500, 15)
-        self.Size = Size(500, 575 if extraction else 475)  # Set the size of the form
+        colrowheight = 35
+        colheight = maxColThreads*colrowheight
+        colmargin = 75
+        colheightex = colheight + colmargin  # margin
+        self.Size = Size(500, 575+colheightex if extraction else 475+colheightex)  # Set the size of the form
         self.Text = 'Tune 3D model positions'  # Set title of the form
         self.TopMost = True
 
@@ -423,6 +428,91 @@ class TuneModelsForm(Form):
 
             lastpos = 440
 
+        # Add now a collision report box
+        col_box = GroupBox()
+        col_box.Text = 'Collision report (increases CPU load of server)'
+        col_box.Location = Point(15, lastpos + colmargin)
+        col_box.Size = Size(450, colheight + colmargin / 2)
+
+        self.col_pairs = []
+        self.col_cb = []
+        self.reports = []
+        # self.gr = self.CreateGraphics()
+
+        # Header labels
+        y_pos = 15
+        status = Label()
+        status.Text = 'Result:'
+        status.Location = Point(260, y_pos)
+        status.AutoSize = True
+        col_box.Controls.Add(status)
+
+        dscl = Label()
+        dscl.Text = 'DSC:'
+        dscl.Location = Point(330, y_pos)
+        dscl.AutoSize = True
+        col_box.Controls.Add(dscl)
+
+        for row in range(maxColThreads):
+            y_pos = row * colrowheight + 40
+
+            # Activate or not collision detection
+            cb = CheckBox()
+            cb.Location = Point(15, y_pos)
+            cb.Width = 20
+            cb.Checked = False
+            #cb.CheckedChanged += self.apply_button_clicked
+            col_box.Controls.Add(cb)
+            self.col_cb.append(cb)
+
+            # Add a ComboBox that will display the ROIs to perform collision detection on (roiA vs roiB)
+            boxA = ComboBox()
+            boxA.DataSource = [" "]+[r.Name for r in case.PatientModel.RegionsOfInterest]
+            boxA.Location = Point(35, y_pos)
+            boxA.Size = Size(100, colrowheight)
+            #boxA.SelectedIndexChanged += self.apply_button_clicked
+            boxB = ComboBox()
+            boxB.DataSource = [" "] + [r.Name for r in case.PatientModel.RegionsOfInterest]
+            boxB.Location = Point(140, y_pos)
+            boxB.Size = Size(100, colrowheight)
+            #boxB.SelectedIndexChanged += self.apply_button_clicked
+            col_box.Controls.Add(boxA)
+            col_box.Controls.Add(boxB)
+            self.col_pairs.append([boxA, boxB])
+
+            # Collision YES or NO label
+            result = Label()
+            result.Text = ''
+            result.Location = Point(260, y_pos+5)
+            result.AutoSize = True
+            col_box.Controls.Add(result)
+
+            # Dice similarity coefficient
+            dsc = Label()
+            dsc.Text = ''
+            dsc.Location = Point(330, y_pos+5)
+            result.AutoSize = True
+            col_box.Controls.Add(dsc)
+
+            self.reports.append([result, dsc])
+
+            # https://docs.microsoft.com/en-us/dotnet/api/system.windows.media.brushes?view=netframework-4.8
+            # https://stackoverflow.com/questions/1923334/red-green-light-indicators-in-c-sharp-net-form
+            # https://stackoverflow.com/questions/1835062/drawing-circles-with-system-drawing
+            # https://www.tutorialspoint.com/draw-an-ellipse-in-chash
+            # https://stackoverflow.com/questions/4124638/how-to-delete-a-drawn-circle-in-c-sharp-windows-form
+            # self.gr.FillEllipse(SolidBrush(Color.Red), 230, y_pos, 200, 200)
+
+        # data_grid = DataGridView()
+        # data_grid.Text = 'datagrid'
+        # data_grid.Location = Point(200,lastpos+15)
+        # data_grid.Size = Size(200,colheight)
+        # col_box.Controls.Add(data_grid)
+
+        self.Controls.Add(col_box)
+
+        lastpos += colheight + colmargin
+
         # Add button to press Apply
         button = Button()
         button.Text = 'Apply'
@@ -525,6 +615,14 @@ class TuneModelsForm(Form):
         :param: _sender  ignore
         :param: _event ignore
         """
+
+        if 'colthreads' in globals():
+            for th in colthreads:
+                if th.IsAlive:
+                    th.Interrupt()
+                    if th.IsAlive and not th.Join(100):
+                        th.Abort()
+
         self.Close()
 
     def flip_button_clicked(self, _sender, _event):
@@ -553,6 +651,7 @@ class TuneModelsForm(Form):
         or when slider is moved so that text box is updated
         :param: self reference to the Form
         """
+
         # Get transformation from text box
         ba = self.tboxB.Text
         ca = self.tboxC.Text
@@ -618,22 +717,15 @@ class TuneModelsForm(Form):
 
         # If input value was in correct interval, perform the transformation
         if ok:
-            global gangle
-            global cangle
-            global bangle
-            global tangle
-            global oldgangle
-            global oldcangle
-            global oldbangle
-            global oldtangle
-            global cx
-            global oldcx
-            global cy
-            global oldcy
-            global cz
-            global oldcz
-            global se
-            global oldse
+            global gangle, oldgangle
+            global cangle, oldcangle
+            global bangle, oldbangle
+            global tangle, oldtangle
+            global cx, oldcx
+            global cy, oldcy
+            global cz, oldcz
+            global se, oldse
+            global coltag, oldcoltag
             oldgangle = gangle
             oldcangle = cangle
             oldbangle = bangle
@@ -655,6 +747,11 @@ class TuneModelsForm(Form):
             cy /= 10.
             cz /= 10.
             se /= 10.
+            oldcoltag = coltag
+            coltag = ""
+            for i, colpair in enumerate(self.col_pairs):
+                coltag += colpair[0].SelectedValue + "\t" + colpair[1].SelectedValue + "\t" + str(int(self.col_cb[i].Checked)) + "\n"
+
             # Transform the models
             transform_models()
 
@@ -704,6 +801,7 @@ def tune_models():
     This function creates a GUI form with sliders for adjusting interactively the treatment head and couch position.
     Once the user presses exit, the form is closed and the imported 3D models are removed.
     """
+    global aform
     aform = TuneModelsForm()
     Application.Run(aform)
     # Form closed, remove now imported ROIs
@@ -790,52 +888,77 @@ def transform_models():
                 bangle -= 2*alpha
                 tangle += 2*beta
 
-        for i, roi_name in enumerate(lsci):
-            part = [p for p in couch.parts if p.name == roi_name][0]
-            dx = cx - oldcx
-            dy = cy - oldcy
-            dz = cz - oldcz
+        if abs(bangle - oldbangle) > 0 or abs(tangle - oldtangle) > 0 or abs(cangle - oldcangle) > 0 :
+            for i, roi_name in enumerate(lsci):
+                part = [p for p in couch.parts if p.name == roi_name][0]
+                dx = cx - oldcx
+                dy = cy - oldcy
+                dz = cz - oldcz
 
-            if i == 0:
-                d = cs * (bangle - oldbangle)
-            elif i == 1:
-                d = cs * (tangle - oldtangle)
-            else:
-                d = cs * (cangle - oldcangle)
+                if i == 0:
+                    d = cs * (bangle - oldbangle)
+                elif i == 1:
+                    d = cs * (tangle - oldtangle)
+                else:
+                    d = cs * (cangle - oldcangle)
 
-            if not part.moveX:
-                dx = 0
-            if not part.moveY:
-                dy = 0
-            if not part.moveZ:
-                dz = 0
+                if not part.moveX:
+                    dx = 0
+                if not part.moveY:
+                    dy = 0
+                if not part.moveZ:
+                    dz = 0
 
-            if i == 0:
-                rtpx = oldbx  # rotation point
-                rtpz = oldbz  # rotation point
-                dx = -bs*(sin(cs*cangle)-sin(cs*oldcangle))
-                dz =  bs*(cos(cs*cangle)-cos(cs*oldcangle))
-            elif i == 1:
-                rtpx = iso.x + dx0 + oldcx
-                rtpz = iso.z + dz0 + oldcz
-            else:
-                rtpx = iso.x
-                rtpz = iso.z
+                if i == 0:
+                    rtpx = oldbx  # rotation point
+                    rtpz = oldbz  # rotation point
+                    dx = -bs*(sin(cs*cangle)-sin(cs*oldcangle))
+                    dz =  bs*(cos(cs*cangle)-cos(cs*oldcangle))
+                elif i == 1:
+                    rtpx = iso.x + dx0 + oldcx
+                    rtpz = iso.z + dz0 + oldcz
+                else:
+                    rtpx = iso.x
+                    rtpz = iso.z
 
-            case.PatientModel.RegionsOfInterest[roi_name].TransformROI3D(Examination=examination, TransformationMatrix={
-                'M11': cos(d), 'M12': 0, 'M13': -sin(d), 'M14': rtpx - rtpx*cos(d) + rtpz*sin(d) + dx,
-                'M21': 0     , 'M22': 1, 'M23': 0      , 'M24': dy,
-                'M31': sin(d), 'M32': 0, 'M33':  cos(d), 'M34': rtpz - rtpx*sin(d) - rtpz*cos(d) + dz,
-                'M41': 0     , 'M42': 0, 'M43': 0      , 'M44': 1                                    })
-            moved = True
+                case.PatientModel.RegionsOfInterest[roi_name].TransformROI3D(Examination=examination, TransformationMatrix={
+                    'M11': cos(d), 'M12': 0, 'M13': -sin(d), 'M14': rtpx - rtpx*cos(d) + rtpz*sin(d) + dx,
+                    'M21': 0     , 'M22': 1, 'M23': 0      , 'M24': dy,
+                    'M31': sin(d), 'M32': 0, 'M33':  cos(d), 'M34': rtpz - rtpx*sin(d) - rtpz*cos(d) + dz,
+                    'M41': 0     , 'M42': 0, 'M43': 0      , 'M44': 1                                    })
+                moved = True
+
+    if coltag != oldcoltag:
+        moved = True
 
     if moved:
-        global colthread
-        if colthread.IsAlive:
-            colthread.Abort()
-            colthread.Join()
-        colthread = Thread(ThreadStart(detect_collision))
-        colthread.Start()
+        # Global collision detection thread
+        if not 'colthreads' in globals():
+            global colthreads
+        else:
+            for th in colthreads:
+                if th.IsAlive:
+                    th.Interrupt()
+                    if th.IsAlive and not th.Join(100):
+                        th.Abort()
+
+        if len(coltag) == maxColThreads * 6:  # If nothing selected, just separators " \t \t0\n" for each row, remove everything
+            for labels in aform.reports:
+                for label in labels:
+                    label.Text = ''
+        else:
+            colthreads = []
+            colpairs = coltag.split('\n')
+            colpairs = colpairs[:-1] # Remove last element in list which is empty due to trailing \n
+            roi_lst = [r.Name for r in case.PatientModel.RegionsOfInterest]
+            for idx, colpair in enumerate(colpairs):
+                [roiA, roiB, enable] = colpair.split('\t')
+                if roiA in roi_lst and roiB in roi_lst and int(enable) != 0:
+                    colthreads.append(Thread(ParameterizedThreadStart(detect_collision)))
+                    colthreads[-1].Start(str(idx) + '\t' + roiA + '\t' + roiB)
+                else:
+                    for label in aform.reports[idx]:
+                        label.Text = ''
 
 
 def remove_models():
@@ -849,15 +972,35 @@ def remove_models():
             case.PatientModel.RegionsOfInterest[roi_name].DeleteRoi()
 
 
-def detect_collision():
+def detect_collision(arg):
     """
     This function is used for automatic collision detection
     """
     try:
-        print('Started')
+        idx, roiA, roiB = arg.split('\t')
+        idx = int(idx)
+        #print('Started', idx, roiA, roiB)
+        aform.reports[idx][0].Text = "..."
+        aform.reports[idx][1].Text = "###"
+        aform.reports[idx][0].ForeColor = Color.Orange
+        aform.reports[idx][1].ForeColor = Color.Orange
     finally:
-        Thread.Sleep(5000)
-        print('Finished')
+        try:
+            result = structure_set.ComparisonOfRoiGeometries(RoiA=roiA, RoiB=roiB)
+            # Alternatively, one could use RoiSurfaceToSurfaceDistanceBasedOnDT(..) or
+            safe = ((result['DiceSimilarityCoefficient'] - abs(result['Precision']))<=0.0 or (result['DiceSimilarityCoefficient']<5e-5))
+            aform.reports[idx][0].Text = 'OK' if safe else '!COLL!'
+            aform.reports[idx][0].ForeColor = Color.Green if safe else Color.Red
+            aform.reports[idx][1].Text = "{:.4f}".format(result['DiceSimilarityCoefficient'])
+            aform.reports[idx][1].ForeColor = Color.Green if safe else Color.Red
+        except ThreadInterruptedException:
+            #print('Interrupted', idx, roiA, roiB)
+            aform.reports[idx][0].Text = ""
+            aform.reports[idx][1].Text = ""
+        except ThreadAbortException:
+            #print('Aborted', idx, roiA, roiB)
+            aform.reports[idx][0].Text = ""
+            aform.reports[idx][1].Text = ""
 
 
 def main():
@@ -908,7 +1051,9 @@ def main():
     # Define the list of available treatment heads
     linacs = {agility.name: agility, proteus.name: proteus, trilogy.name: trilogy, truebeam.name: truebeam}
     # Define the list of available couches
-    couches = {evo.name: evo, robot.name: robot}
+    couches = OrderedDict()  # https://stackoverflow.com/questions/1867861/how-to-keep-keys-values-in-same-order-as-declared
+    couches[evo.name  ] = evo
+    couches[robot.name] = robot
 
     # GUI initialization. Some variables below are global
 
@@ -979,8 +1124,10 @@ def main():
     # Create first model at angles g=0,c=0.
     # These below are global variables describing gantry angle (gangle), couch angle (cangle), couch position (cx,cy,cz), snout extration (se), and the old value before changing it.
     # tangle, bangle, lsci and flip are used just for scissor robot
+    # coltag is the names of the ROIs selected for collision
     global gangle, cangle, bangle, tangle, oldgangle, oldcangle, oldbangle, oldtangle
     global cx, cy, cz, se, oldcx, oldcy, oldcz, oldse
+    global coltag, oldcoltag
     global flip
     global lsci
     gangle = 0
@@ -1001,6 +1148,8 @@ def main():
     oldse = 0
     flip = False
     lsci = []
+    coltag = ""
+    oldcoltag = ""
 
     # Remove previous ROIs if already defined, e.g. if previous program instance crashed or script was stopped. This prevents an error later when importing.
     # User is asked for individual removal confirmation, just in case someone defined a clinical ROI with by chance the same name than your model.
@@ -1119,17 +1268,16 @@ def main():
     global extraction
     extraction = any([part.retractable for part in linac.parts if part.active])
 
-    # Collision detection thread
-    global colthread
-    colthread = Thread(ThreadStart(detect_collision))
+    global maxColThreads
+    maxColThreads = ProcessorCount - 2  # 1 for GUI, 1 for TuneForm
+    maxColThreads = min(maxColThreads, 6)  # Do not use more than 6 threads
+    maxColThreads = max(maxColThreads, 1)  # Use at least 1 thread
 
     # Tuning form thread
     thread = Thread(ThreadStart(tune_models))
     thread.Start()
     thread.Join()
-    if colthread.IsAlive:
-        colthread.Abort()
-        colthread.Join()
+
 
 if __name__ == '__main__':
     main()
