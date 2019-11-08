@@ -1068,9 +1068,14 @@ def main():
                     )
 
     # Define the list of available treatment heads
-    linacs = {agility.name: agility, proteus.name: proteus, trilogy.name: trilogy, truebeam.name: truebeam}
+    # https://stackoverflow.com/questions/1867861/how-to-keep-keys-values-in-same-order-as-declared
+    linacs = OrderedDict()
+    linacs[agility.name] = agility
+    linacs[proteus.name] = proteus
+    linacs[trilogy.name] = trilogy
+    linacs[truebeam.name] = truebeam
     # Define the list of available couches
-    couches = OrderedDict()  # https://stackoverflow.com/questions/1867861/how-to-keep-keys-values-in-same-order-as-declared
+    couches = OrderedDict()
     couches[evo.name] = evo
     couches[robot.name] = robot
 
