@@ -103,6 +103,7 @@ from System.Drawing import Point, Size, Color#, SolidBrush, Graphics
 from System.Threading import ParameterizedThreadStart, ThreadStart, Thread, ThreadInterruptedException, ThreadAbortException
 from System.Environment import ProcessorCount
 
+
 class Part:
     """
     Class describing a 3D model file, that might be a part of the whole machine (treatment head or couch)
@@ -461,24 +462,24 @@ class TuneModelsForm(Form):
             cb.Location = Point(15, y_pos)
             cb.Width = 20
             cb.Checked = False
-            #cb.CheckedChanged += self.apply_button_clicked
+            # cb.CheckedChanged += self.apply_button_clicked
             col_box.Controls.Add(cb)
             self.col_cb.append(cb)
 
             # Add a ComboBox that will display the ROIs to perform collision detection on (roiA vs roiB)
-            boxA = ComboBox()
-            boxA.DataSource = [" "]+[r.Name for r in case.PatientModel.RegionsOfInterest]
-            boxA.Location = Point(35, y_pos)
-            boxA.Size = Size(100, colrowheight)
-            #boxA.SelectedIndexChanged += self.apply_button_clicked
-            boxB = ComboBox()
-            boxB.DataSource = [" "] + [r.Name for r in case.PatientModel.RegionsOfInterest]
-            boxB.Location = Point(140, y_pos)
-            boxB.Size = Size(100, colrowheight)
-            #boxB.SelectedIndexChanged += self.apply_button_clicked
-            col_box.Controls.Add(boxA)
-            col_box.Controls.Add(boxB)
-            self.col_pairs.append([boxA, boxB])
+            boxa = ComboBox()
+            boxa.DataSource = [" "]+[r.Name for r in case.PatientModel.RegionsOfInterest]
+            boxa.Location = Point(35, y_pos)
+            boxa.Size = Size(100, colrowheight)
+            # boxA.SelectedIndexChanged += self.apply_button_clicked
+            boxb = ComboBox()
+            boxb.DataSource = [" "] + [r.Name for r in case.PatientModel.RegionsOfInterest]
+            boxb.Location = Point(140, y_pos)
+            boxb.Size = Size(100, colrowheight)
+            # boxB.SelectedIndexChanged += self.apply_button_clicked
+            col_box.Controls.Add(boxa)
+            col_box.Controls.Add(boxb)
+            self.col_pairs.append([boxa, boxb])
 
             # Collision YES or NO label
             result = Label()
@@ -888,7 +889,7 @@ def transform_models():
                 bangle -= 2*alpha
                 tangle += 2*beta
 
-        if abs(bangle - oldbangle) > 0 or abs(tangle - oldtangle) > 0 or abs(cangle - oldcangle) > 0 :
+        if abs(bangle - oldbangle) > 0 or abs(tangle - oldtangle) > 0 or abs(cangle - oldcangle) > 0:
             for i, roi_name in enumerate(lsci):
                 part = [p for p in couch.parts if p.name == roi_name][0]
                 dx = cx - oldcx
@@ -933,7 +934,7 @@ def transform_models():
 
     if moved:
         # Global collision detection thread
-        if not 'colthreads' in globals():
+        if 'colthreads' not in globals():
             global colthreads
         else:
             for th in colthreads:
@@ -949,13 +950,13 @@ def transform_models():
         else:
             colthreads = []
             colpairs = coltag.split('\n')
-            colpairs = colpairs[:-1] # Remove last element in list which is empty due to trailing \n
+            colpairs = colpairs[:-1]  # Remove last element in list which is empty due to trailing \n
             roi_lst = [r.Name for r in case.PatientModel.RegionsOfInterest]
             for idx, colpair in enumerate(colpairs):
-                [roiA, roiB, enable] = colpair.split('\t')
-                if roiA in roi_lst and roiB in roi_lst and int(enable) != 0:
+                roia, roib, enable = colpair.split('\t')
+                if roia in roi_lst and roib in roi_lst and int(enable) != 0:
                     colthreads.append(Thread(ParameterizedThreadStart(detect_collision)))
-                    colthreads[-1].Start(str(idx) + '\t' + roiA + '\t' + roiB)
+                    colthreads[-1].Start(str(idx) + '\t' + roia + '\t' + roib)
                 else:
                     for label in aform.reports[idx]:
                         label.Text = ''
@@ -975,32 +976,50 @@ def remove_models():
 def detect_collision(arg):
     """
     This function is used for automatic collision detection
+    :param arg: a string encoding what ROIs to perform detection collision on, namely "idx\tRoiA\tRoiB"
+    where "index" is the row in the GUI form dialog where this collision pair was chosen (comboboxes).
+    RoiA is name of the first ROI, RoiB is the name of the second ROI. The collision is calculated then
+    by checking the overlap between ROIs A and B.
     """
     try:
-        idx, roiA, roiB = arg.split('\t')
+        # print('Started', idx, roiA, roiB)
+        idx, roia, roib = arg.split('\t')
         idx = int(idx)
-        #print('Started', idx, roiA, roiB)
-        aform.reports[idx][0].Text = "..."
-        aform.reports[idx][1].Text = "###"
-        aform.reports[idx][0].ForeColor = Color.Orange
-        aform.reports[idx][1].ForeColor = Color.Orange
+        lres = aform.reports[idx][0]
+        ldsc = aform.reports[idx][1]
+        lres.Text = "..."
+        lres.ForeColor = Color.Orange
+        ldsc.Text = "###"
+        ldsc.ForeColor = Color.Orange
     finally:
         try:
-            result = structure_set.ComparisonOfRoiGeometries(RoiA=roiA, RoiB=roiB)
+            idx, roia, roib = arg.split('\t')
+            idx = int(idx)
+            lres = aform.reports[idx][0]
+            ldsc = aform.reports[idx][1]
+            result = structure_set.ComparisonOfRoiGeometries(RoiA=roia, RoiB=roib)
             # Alternatively, one could use RoiSurfaceToSurfaceDistanceBasedOnDT(..) or
-            safe = ((result['DiceSimilarityCoefficient'] - abs(result['Precision']))<=0.0 or (result['DiceSimilarityCoefficient']<5e-5))
-            aform.reports[idx][0].Text = 'OK' if safe else '!COLL!'
-            aform.reports[idx][0].ForeColor = Color.Green if safe else Color.Red
-            aform.reports[idx][1].Text = "{:.4f}".format(result['DiceSimilarityCoefficient'])
-            aform.reports[idx][1].ForeColor = Color.Green if safe else Color.Red
+            safe = (((result['DiceSimilarityCoefficient'] - abs(result['Precision'])) <= 0.0) or (result['DiceSimilarityCoefficient'] < 5e-5))
+            lres.Text = 'OK' if safe else '!COLL!'
+            lres.ForeColor = Color.Green if safe else Color.Red
+            ldsc.Text = "{:.4f}".format(result['DiceSimilarityCoefficient'])
+            ldsc.ForeColor = Color.Green if safe else Color.Red
         except ThreadInterruptedException:
-            #print('Interrupted', idx, roiA, roiB)
-            aform.reports[idx][0].Text = ""
-            aform.reports[idx][1].Text = ""
+            # print('Interrupted', idx, roiA, roiB)
+            idx, roia, roib = arg.split('\t')
+            idx = int(idx)
+            lres = aform.reports[idx][0]
+            ldsc = aform.reports[idx][1]
+            lres.Text = ""
+            ldsc.Text = ""
         except ThreadAbortException:
-            #print('Aborted', idx, roiA, roiB)
-            aform.reports[idx][0].Text = ""
-            aform.reports[idx][1].Text = ""
+            # print('Aborted', idx, roiA, roiB)
+            idx, roia, roib = arg.split('\t')
+            idx = int(idx)
+            lres = aform.reports[idx][0]
+            ldsc = aform.reports[idx][1]
+            lres.Text = ""
+            ldsc.Text = ""
 
 
 def main():
@@ -1052,7 +1071,7 @@ def main():
     linacs = {agility.name: agility, proteus.name: proteus, trilogy.name: trilogy, truebeam.name: truebeam}
     # Define the list of available couches
     couches = OrderedDict()  # https://stackoverflow.com/questions/1867861/how-to-keep-keys-values-in-same-order-as-declared
-    couches[evo.name  ] = evo
+    couches[evo.name] = evo
     couches[robot.name] = robot
 
     # GUI initialization. Some variables below are global
@@ -1122,9 +1141,10 @@ def main():
         iso = structure_set.PoiGeometries[poi_lst.index(poi_type)].Point
 
     # Create first model at angles g=0,c=0.
-    # These below are global variables describing gantry angle (gangle), couch angle (cangle), couch position (cx,cy,cz), snout extration (se), and the old value before changing it.
+    # These below are global variables describing gantry angle (gangle), couch angle (cangle), couch position (cx,cy,cz)
+    # snout extration (se), and the old value before changing it.
     # tangle, bangle, lsci and flip are used just for scissor robot
-    # coltag is the names of the ROIs selected for collision
+    # coltag is a string encoding the names of the ROIs selected for collision
     global gangle, cangle, bangle, tangle, oldgangle, oldcangle, oldbangle, oldtangle
     global cx, cy, cz, se, oldcx, oldcy, oldcz, oldse
     global coltag, oldcoltag
@@ -1265,9 +1285,11 @@ def main():
                             'M31': 0, 'M32': 0, 'M33': 1, 'M34': dz,
                             'M41': 0, 'M42': 0, 'M43': 0, 'M44': 1})
 
+    # Check if any element of the modelled ones is a rectractable snout or range shifter
     global extraction
     extraction = any([part.retractable for part in linac.parts if part.active])
 
+    # Check the maximum number of threads (roiA : roiB combinations) to allow for collision detection
     global maxColThreads
     maxColThreads = ProcessorCount - 2  # 1 for GUI, 1 for TuneForm
     maxColThreads = min(maxColThreads, 6)  # Do not use more than 6 threads
