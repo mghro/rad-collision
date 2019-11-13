@@ -86,6 +86,26 @@
 #  'M21':sin(d)*cos(b)                       , 'M22': cos(d)        , 'M23':-sin(d)*sin(b)                       , 'M24':iso.y-iso.x* sin(d)*cos(b)                        -iso.y*cos(d)        +iso.z* sin(d)*sin(b)                        ,
 #  'M31':cos(d)*cos(b)*sin(b2)+sin(b)*cos(b2), 'M32':-sin(d)*sin(b2), 'M33':-cos(d)*sin(b)*sin(b2)+cos(b)*cos(b2), 'M34':iso.z-iso.x*(cos(d)*cos(b)*sin(b2)+sin(b)*cos(b2))+iso.y*sin(d)*sin(b2)+iso.z*(cos(d)*sin(b)*sin(b2)-cos(b)*cos(b2)),
 #  'M41':0                                   , 'M42': 0             , 'M43': 0                                   , 'M44':1                                                             }
+# In the case that the element is retractable by an amount ey = se - oldse, as a snout, then an additional translation T(0,0,gs*ey) is needed between
+# the two R_z matrices, and the result for the last matrix column yields instead:
+# 'M14':iso.x-iso.x*(cos(d)*cos(b)*cos(b2)-sin(b)*sin(b2))+iso.y*sin(d)*cos(b2)+iso.z*(cos(d)*sin(b)*cos(b2)+cos(b)*sin(b2)) - ey*sin(a2)*cos(b2)
+# 'M24':iso.y-iso.x* sin(d)*cos(b)                        -iso.y*cos(d)        +iso.z* sin(d)*sin(b)                         - ey*cos(a2)
+# 'M34':iso.z-iso.x*(cos(d)*cos(b)*sin(b2)+sin(b)*cos(b2))+iso.y*sin(d)*sin(b2)+iso.z*(cos(d)*sin(b)*sin(b2)-cos(b)*cos(b2)),
+#
+# All these operations have been done manually, but can be cross-checked with GNU Octave:
+# setenv PYTHON python3
+# sympref reset
+# pkg load symbolic
+# syms a b A B x y z e
+# Rzm = [[cos(a),-sin(a),0,0];[sin(a),cos(a),0,0];[0, 0, 1,0];[0,0,0,1]]
+# Rym = [[cos(b), 0, -sin(b),0];[0, 1, 0,0];[sin(b),0,cos(b),0];[0,0,0,1]]
+# Tm = [[1,0,0,-x];[0,1,0,-y];[0,0,1,-z];[0,0,0,1]]
+# Rzp = [[cos(A),-sin(A),0,0];[sin(A),cos(A),0,0];[0, 0, 1,0];[0,0,0,1]]
+# Ryp = [[cos(B), 0, -sin(B),0];[0, 1, 0,0];[sin(B),0,cos(B),0];[0,0,0,1]]
+# Tp = [[1,0,0,x];[0,1,0,y];[0,0,1,z];[0,0,0,1]]
+# simplify(Tp*Ryp*Rzp*Rzm*Rym*Tm)
+# Ty = [[1,0,0,0];[0,1,0,-e];[0,0,1,0];[0,0,0,1]]
+# simplify(Tp*Ryp*Rzp*Ty*Rzm*Rym*Tm)
 
 # Import basic modules
 from math import cos, sin, radians, degrees, sqrt, acos, atan2
@@ -821,12 +841,13 @@ def transform_models():
                 roi_name = part.name
                 b = -cs*(oldcangle+c0)
                 b2 = cs*(cangle+c0)
+                a2 = gs*gangle
                 d = gs*(gangle - oldgangle)  # g0 cancels
                 ey = gs*(se - oldse) if part.retractable else 0
                 case.PatientModel.RegionsOfInterest[roi_name].TransformROI3D(Examination=examination, TransformationMatrix={
-                    'M11': cos(d)*cos(b)*cos(b2)-sin(b)*sin(b2), 'M12': -sin(d)*cos(b2), 'M13': -cos(d)*sin(b)*cos(b2)-cos(b)*sin(b2), 'M14': iso.x-iso.x*(cos(d)*cos(b)*cos(b2)-sin(b)*sin(b2))+iso.y*sin(d)*cos(b2)+iso.z*(cos(d)*sin(b)*cos(b2)+cos(b)*sin(b2))    ,
-                    'M21': sin(d)*cos(b)                       , 'M22':  cos(d)        , 'M23': -sin(d)*sin(b)                       , 'M24': iso.y-iso.x* sin(d)*cos(b)                        -iso.y*cos(d)        +iso.z* sin(d)*sin(b)                        - ey,
-                    'M31': cos(d)*cos(b)*sin(b2)+sin(b)*cos(b2), 'M32': -sin(d)*sin(b2), 'M33': -cos(d)*sin(b)*sin(b2)+cos(b)*cos(b2), 'M34': iso.z-iso.x*(cos(d)*cos(b)*sin(b2)+sin(b)*cos(b2))+iso.y*sin(d)*sin(b2)+iso.z*(cos(d)*sin(b)*sin(b2)-cos(b)*cos(b2))    ,
+                    'M11': cos(d)*cos(b)*cos(b2)-sin(b)*sin(b2), 'M12': -sin(d)*cos(b2), 'M13': -cos(d)*sin(b)*cos(b2)-cos(b)*sin(b2), 'M14': iso.x-iso.x*(cos(d)*cos(b)*cos(b2)-sin(b)*sin(b2))+iso.y*sin(d)*cos(b2)+iso.z*(cos(d)*sin(b)*cos(b2)+cos(b)*sin(b2))+ ey*sin(a2)*cos(b2),
+                    'M21': sin(d)*cos(b)                       , 'M22':  cos(d)        , 'M23': -sin(d)*sin(b)                       , 'M24': iso.y-iso.x* sin(d)*cos(b)                        -iso.y*cos(d)        +iso.z* sin(d)*sin(b)                        - ey*cos(a2)        ,
+                    'M31': cos(d)*cos(b)*sin(b2)+sin(b)*cos(b2), 'M32': -sin(d)*sin(b2), 'M33': -cos(d)*sin(b)*sin(b2)+cos(b)*cos(b2), 'M34': iso.z-iso.x*(cos(d)*cos(b)*sin(b2)+sin(b)*cos(b2))+iso.y*sin(d)*sin(b2)+iso.z*(cos(d)*sin(b)*sin(b2)-cos(b)*cos(b2))+ ey*sin(a2)*sin(b2),
                     'M41': 0                                   , 'M42':  0             , 'M43':  0                                   , 'M44': 1                                                                                                                      })
                 moved = True
     # Then, move the couch to a new position
