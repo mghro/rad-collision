@@ -35,6 +35,13 @@ How to use
 - The perspective should match that of an observer standing in front of the gantry
 - More information is given in the header of collision_detection.py
 
+Known issues
+------------
+
+- It does not handle yet custom PatientOrientations
+- RayStation (9A) crashes if you import STL geometries that are not closed surfaces
+- RayStation (9A) crashes when calculating DSC for very complex geometries with holes
+
 
 Created and documented by
 -------------------------
