@@ -109,6 +109,7 @@
 
 # Import basic modules
 from math import cos, sin, radians, degrees, sqrt, acos, atan2
+import os
 import re
 import itertools
 from collections import OrderedDict
@@ -1049,7 +1050,8 @@ def main():
     """
 
     # Define your 3D models and machines available at your institution
-    agility = Machine("Elekta Agility", "Y:\\ydrive\\STL parts\\Elekta Agility\\",
+    datapath = "F:\\STL parts\\"
+    agility = Machine("Elekta Agility", datapath + "Elekta Agility\\",
                       [Part("Gantry", "RotatingHeads.stl", "Blue", True),
                        Part("Electron cone 15cm x 15cm", "ElectronApplicator.stl", "Blue", False),
                        Part("Flat panel left", "FlatPanelExtensionLeft.stl", "Blue", False),
@@ -1057,7 +1059,7 @@ def main():
                        Part("CBCT source", "CBCTsource.stl", "Blue", False)
                        ]
                       )
-    proteus = Machine("iba Proteus", "Y:\\ydrive\\STL parts\\iba Proteus\\",
+    proteus = Machine("iba Proteus",  datapath + "iba Proteus\\",
                       # [Part("Nozzle", "NozzleWithSmallSnout.stl", "Blue", True),
                       [Part("Nozzle", "Nozzle.stl", "Blue", True),
                        Part("Snout 18 cm", "Snout18cm.stl", "Blue", True, retractable=True),
@@ -1065,10 +1067,10 @@ def main():
                        ]
                       )
 
-    trilogy = Machine("Varian IX Trilogy", "Y:\\ydrive\\STL parts\\Varian IX Trilogy\\", [Part("Gantry", "RotatingHeads.stl", "Blue", True)])
-    truebeam = Machine("Varian TrueBeam", "Y:\\ydrive\\STL parts\\Varian TrueBeam\\", [Part("Gantry", "RotatingHeads.stl", "Blue", True)])
+    trilogy = Machine("Varian IX Trilogy",  datapath + "Varian IX Trilogy\\", [Part("Gantry", "RotatingHeads.stl", "Blue", True)])
+    truebeam = Machine("Varian TrueBeam",  datapath + "Varian TrueBeam\\", [Part("Gantry", "RotatingHeads.stl", "Blue", True)])
     # For the couch model, you can specify which subparts are fixed in x, y, z coordinates, i.e. do not translate when moving the upper part of the couch
-    evo = Machine("Hexapod Evo", "Y:\\ydrive\\STL parts\\Hexapod Evo\\",
+    evo = Machine("Hexapod Evo", datapath + "Hexapod Evo\\",
                   [Part("Couch", "Hexapod.stl", "Green", True),
                    Part("Couch base top", "CouchBaseFwd.stl", "Green", False),
                    Part("Couch base middle", "CouchBase.stl", "Green", False, True, True, False),
@@ -1080,7 +1082,7 @@ def main():
                    Part("Head support", "HeadAdapter.stl", "Green", False),
                    ]
                   )
-    robot = Machine("Sciss Robot", "Y:\\ydrive\\STL parts\\Scissor Robot\\",
+    robot = Machine("Sciss Robot", "Scissor Robot\\",
                     [Part("Couch", "Couch.stl", "Green", True),
                      Part("Scissor pedestal", "ScissorPedestal.stl", "Gray", True, False, True, False, True),
                      Part("Scissor base", "ScissorBase.stl", "Gray", True, False, True, False, True),
@@ -1217,6 +1219,8 @@ def main():
             roi_color = part.color
             roi_type = 'Support'
             file_name = linac.path + part.filename
+            if not os.path.isfile(file_name):
+                raise NameError(file_name,'not found. Check STL data path in the script.')
             case.PatientModel.CreateRoi(Name=roi_name, Color=roi_color, Type=roi_type)
             # import mesh from file
             geo = structure_set.RoiGeometries[roi_name]
@@ -1237,6 +1241,8 @@ def main():
             roi_color = part.color
             roi_type = 'Support'
             file_name = couch.path+part.filename
+            if not os.path.isfile(file_name):
+                raise NameError(file_name,'not found. Check STL data path in the script.')
             case.PatientModel.CreateRoi(Name=roi_name, Color=roi_color, Type=roi_type)
             # import mesh from file
             geo = structure_set.RoiGeometries[roi_name]
