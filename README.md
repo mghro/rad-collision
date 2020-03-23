@@ -1,6 +1,6 @@
 # RadCollision
 
-RayCollision is an open-source user script for RayStation designed to aid treatment planners in the choice of beam incidence angles that do not collide with the patient or couch.
+RadCollision is an open-source platform for designed to aid treatment planners in the choice of beam incidence angles that do not collide with the patient or couch. Currently, only the RayStation TPS is supported.
 It loads a 3D model of a LINAC into RayStation, that can be rotated interactively to assess colission risk.
 It is written in the native IronPython scripting language of the RayStation interface.
 
