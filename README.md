@@ -10,7 +10,7 @@ Licensing
 This script is open-source.
 You can use, modify and contribute to this script. Attribution shall be granted to:
 
-xxx et al - Med Phys 2019
+Hueso-González et al. - Biomed Phys Eng Express 2020
 
 
 Requirements
