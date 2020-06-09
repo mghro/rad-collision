@@ -7,10 +7,9 @@ It is written in the native IronPython scripting language of the RayStation inte
 Licensing
 ---------
 
-This script is open-source.
-You can use, modify and contribute to this script. Attribution shall be granted to:
+This software platform is open-source. You can use, modify and contribute to it. Original attribution/citation shall be granted to:
 
-Hueso-González et al. - Biomed Phys Eng Express 2020
+Hueso-González et al. - Biomed Phys Eng Express 2020, "An open-source platform for interactive collision prevention in photon and particle beam therapy treatment planning".
 
 
 Requirements
