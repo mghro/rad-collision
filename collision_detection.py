@@ -5,6 +5,7 @@
 #
 # Fernando Hueso-González - fhuesogonzalez@mgh.harvard.edu
 # Massachusetts General Hospital and Harvard Medical School
+# Cite as: Hueso-González et al, Biomed Phys Eng Express 2020
 #
 # Loads a 3D model of a radiotherapy treatment head and patient couch into RayStation for collision detection
 #
@@ -115,13 +116,13 @@ import itertools
 from collections import OrderedDict
 
 # Import RayStation modules and WinForms for GUI
-from connect import *
+from connect import get_current, await_user_input
 import clr
 clr.AddReference("System.Windows.Forms")
 clr.AddReference("System.Drawing")
 from System.Windows.Forms import Application, Form, Label, ComboBox, Button, TextBox, TrackBar, FormStartPosition, TickStyle, Keys, CheckBox, GroupBox#, DataGridView
 from System.Drawing import Point, Size, Color#, SolidBrush, Graphics
-from System.Threading import ParameterizedThreadStart, ThreadStart, Thread, ThreadInterruptedException, ThreadAbortException
+from System.Threading import ParameterizedThreadStart, ThreadStart, Thread, ThreadInterruptedException, ThreadAbortException, SpinWait
 from System.Environment import ProcessorCount
 
 
@@ -179,9 +180,9 @@ class SelectListForm(Form):
 
     def __init__(self, lst, description):
         """
-        :param: self the reference to the Form
-        :param: lst the list of elements with keys
-        :param: description the readable title of the list or category of elements
+        :param self: the reference to the Form
+        :param lst: the list of elements with keys
+        :param description: the readable title of the list or category of elements
         """
         self.name = None
         self.Size = Size(300, 200)   # Set the size of the form
@@ -214,9 +215,9 @@ class SelectListForm(Form):
     def ok_button_clicked(self, _sender, _event):
         """
         Method invoked when the OK button is clicked
-        :param: self the reference to the Form
-        :param: _sender  ignore
-        :param: _event ignore
+        :param self: the reference to the Form
+        :param _sender:  ignore
+        :param _event: ignore
         """
         self.name = self.combobox.SelectedValue  # Save the selected element name
         self.Close()  # Close the form
@@ -230,8 +231,8 @@ class SelectPartsForm(Form):
     def __init__(self, machine):
         """
         Form initialization
-        :param: self reference to the Form
-        :param: machine array of parts corresponding to this machine
+        :param self: reference to the Form
+        :param machine: array of parts corresponding to this machine
         """
 
         self.Size = Size(300, 500)  # Set the size of the form
@@ -267,9 +268,9 @@ class SelectPartsForm(Form):
     def ok_button_clicked(self, _sender, _event):
         """
         Method invoked when the OK button is clicked. Parts active flag is updated
-        :param: self the reference to the Form
-        :param: _sender  ignore
-        :param: _event ignore
+        :param self: the reference to the Form
+        :param _sender:  ignore
+        :param _event: ignore
         """
         for part in self.machine.parts:
             part.active = part.cb.Checked
@@ -285,7 +286,7 @@ class TuneModelsForm(Form):
     def __init__(self):
         """
         Form initialization
-        :param: self reference to the Form
+        :param self: reference to the Form
         """
         self.StartupPosition = FormStartPosition.Manual
         self.Location = Point(500, 15)
@@ -552,6 +553,15 @@ class TuneModelsForm(Form):
             button3.Click += self.flip_button_clicked
             self.Controls.Add(button3)
 
+        if beamset is not None:
+            # Add button to press Apply
+            button = Button()
+            button.Text = 'Check BeamSet'
+            button.AutoSize = True
+            button.Location = Point(235, lastpos + 50)
+            button.Click += self.beamset_button_clicked
+            self.Controls.Add(button)
+
         # Add button to press Exit
         button2 = Button()
         button2.Text = 'Exit'
@@ -563,9 +573,9 @@ class TuneModelsForm(Form):
     def on_enter(self, _sender, args):
         """
         Method invoked when a key is pressed within a textbox. It calls transform() if this key is enter
-        :param: self the reference to the Form
-        :param: _sender  ignore
-        :param: args contains the pressed key event
+        :param self: the reference to the Form
+        :param _sender:  ignore
+        :param args: contains the pressed key event
         """
         if args.KeyCode == Keys.Enter:
             self.transform()
@@ -573,9 +583,9 @@ class TuneModelsForm(Form):
     def updatetbox_b(self, _sender, _event):
         """
         Method invoked when the beam angle slider is moved. Updates the text box and calls transform()
-        :param: self the reference to the Form
-        :param: _sender  ignore
-        :param: _event ignore
+        :param self: the reference to the Form
+        :param _sender:  ignore
+        :param _event: ignore
         """
         self.tboxB.Text = str(self.tbB.Value)
         self.transform()
@@ -583,9 +593,9 @@ class TuneModelsForm(Form):
     def updatetbox_c(self, _sender, _event):
         """
         Method invoked when the couch angle slider is moved. Updates the text box and calls transform()
-        :param: self the reference to the Form
-        :param: _sender  ignore
-        :param: _event ignore
+        :param self: the reference to the Form
+        :param _sender:  ignore
+        :param _event: ignore
         """
         self.tboxC.Text = str(self.tbC.Value)
         self.transform()
@@ -593,9 +603,9 @@ class TuneModelsForm(Form):
     def updatetbox_x(self, _sender, _event):
         """
         Method invoked when the x slider is moved. Updates the text box and calls transform()
-        :param: self the reference to the Form
-        :param: _sender  ignore
-        :param: _event ignore
+        :param self: the reference to the Form
+        :param _sender:  ignore
+        :param _event: ignore
         """
         self.tboxX.Text = str(self.tbX.Value)
         self.transform()
@@ -603,9 +613,9 @@ class TuneModelsForm(Form):
     def updatetbox_y(self, _sender, _event):
         """
         Method invoked when the y slider is moved. Updates the text box and calls transform()
-        :param: self the reference to the Form
-        :param: _sender  ignore
-        :param: _event ignore
+        :param self: the reference to the Form
+        :param _sender:  ignore
+        :param _event: ignore
         """
         self.tboxY.Text = str(self.tbY.Value)
         self.transform()
@@ -613,9 +623,9 @@ class TuneModelsForm(Form):
     def updatetbox_z(self, _sender, _event):
         """
         Method invoked when the z slider is moved. Updates the text box and calls transform()
-        :param: self the reference to the Form
-        :param: _sender  ignore
-        :param: _event ignore
+        :param self: the reference to the Form
+        :param _sender:  ignore
+        :param _event: ignore
         """
         self.tboxZ.Text = str(self.tbZ.Value)
         self.transform()
@@ -623,9 +633,9 @@ class TuneModelsForm(Form):
     def updatetbox_e(self, _sender, _event):
         """
         Method invoked when the extraction slider is moved. Updates the text box and calls transform()
-        :param: self the reference to the Form
-        :param: _sender  ignore
-        :param: _event ignore
+        :param self: the reference to the Form
+        :param _sender:  ignore
+        :param _event: ignore
         """
         self.tboxE.Text = str(self.tbE.Value)
         self.transform()
@@ -633,9 +643,9 @@ class TuneModelsForm(Form):
     def exit_button_clicked(self, _sender, _event):
         """
         Method invoked when the Exit button is clicked. It closes the form.
-        :param: self the reference to the Form
-        :param: _sender  ignore
-        :param: _event ignore
+        :param self: the reference to the Form
+        :param _sender:  ignore
+        :param _event: ignore
         """
 
         if 'colthreads' in globals():
@@ -650,9 +660,9 @@ class TuneModelsForm(Form):
     def flip_button_clicked(self, _sender, _event):
         """
         Method invoked when the Flip button is clicked. It toggles the flip boolean variable and calls the transform() function
-        :param: self the reference to the Form
-        :param: _sender  ignore
-        :param: _event ignore
+        :param self: the reference to the Form
+        :param _sender:  ignore
+        :param _event: ignore
         """
         global flip
         flip = not flip
@@ -661,17 +671,35 @@ class TuneModelsForm(Form):
     def apply_button_clicked(self, _sender, _event):
         """
         Method invoked when the Apply button is clicked. It calls the transform() function
-        :param: self the reference to the Form
-        :param: _sender  ignore
-        :param: _event ignore
+        :param self: the reference to the Form
+        :param _sender:  ignore
+        :param _event: ignore
         """
         self.transform()
+
+    def beamset_button_clicked(self, _sender, _event):
+        """
+        Method invoked when the Beamset button is clicked. It calculates the collision for all beams in the beamset, step by step upon clicking on play
+        :param self: the reference to the Form
+        :param _sender:  ignore
+        :param _event: ignore
+        """
+        if 'beamthread' not in globals():
+            global beamthread
+            beamthread = Thread(ParameterizedThreadStart(await_col_report))
+        elif beamthread.IsAlive:
+            beamthread.Interrupt()
+            if beamthread.IsAlive and not beamthread.Join(100):
+                beamthread.Abort()
+
+        beamthread = Thread(ParameterizedThreadStart(await_col_report))
+        beamthread.Start(self)
 
     def transform(self):
         """
         Slot function called whenever the Apply button is clicked, or when entered is clicked on text box,
         or when slider is moved so that text box is updated
-        :param: self reference to the Form
+        :param self: reference to the Form
         """
 
         # Get transformation from text box
@@ -781,7 +809,7 @@ class TuneModelsForm(Form):
         """
         Update the GUI sliders if after text box input finished.
         It has to be done without emitting new signal, to avoid an infinite loop
-        :param: self reference to Form
+        :param self: reference to Form
         """
         # Get new values from text box
         newb = round(float(self.tboxB.Text))
@@ -995,6 +1023,43 @@ def remove_models():
             case.PatientModel.RegionsOfInterest[roi_name].DeleteRoi()
 
 
+def await_col_report(arg):
+    """
+    This function is used for checking collision for each beam in a beamset
+    :param arg: the textbox object
+    """
+    try:
+        deliveryTechnique = beamset.DeliveryTechnique
+        for beam in beamset.Beams:
+            gantry_angle = beam.GantryAngle
+            couch_angle = beam.CouchRotationAngle
+            stop_gantry_angle = beam.ArcStopGantryAngle
+            arc_direction = beam.ArcRotationDirection
+            sampling_angles = [gantry_angle]
+            # If arc defined, sample it every degree and calculate collision in each step
+            if deliveryTechnique=='DynamicArc' and stop_gantry_angle is not None and arc_direction != 'None':
+                step = -1 if arc_direction == 'CounterClockwise' else 1 if arc_direction == 'Clockwise' else 0
+                while gantry_angle != stop_gantry_angle and step!=0:
+                    gantry_angle += step
+                    gantry_angle = gantry_angle % 360
+                    sampling_angles.append(gantry_angle)
+            for sgangle in sampling_angles:
+                arg.tboxB.Text = str(sgangle)
+                arg.tboxC.Text = str(couch_angle)
+                arg.transform()
+                if 'colthreads' in globals():
+                    while any([th.IsAlive for th in colthreads]):
+                        print([th.IsAlive for th in colthreads])
+                        Thread.SpinWait(100000)# Thread.Sleep seems not to be available in this NET version
+                    await_user_input('Collision report is ready for beam "' + beam.Description + '", gantry angle '+str(sgangle)+'. Click OK to verify 3D geometry. Then click on Play Script to continue')
+    except ThreadInterruptedException:
+        print('Beamset interrupted')
+    except ThreadAbortException:
+        print('Beamset aborted')
+    finally:
+        print('Beamset done')
+
+
 def detect_collision(arg):
     """
     This function is used for automatic collision detection
@@ -1051,7 +1116,7 @@ def main():
 
     # Define your 3D models and machines available at your institution
     datapath = "F:\\STL parts\\"
-    agility = Machine("Elekta Agility", datapath + "Elekta Agility\\",
+    agility = Machine("MGH Agility", datapath + "Elekta Agility\\",
                       [Part("Gantry", "RotatingHeads.stl", "Blue", True),
                        Part("Electron cone 15cm x 15cm", "ElectronApplicator.stl", "Blue", False),
                        Part("Flat panel left", "FlatPanelExtensionLeft.stl", "Blue", False),
@@ -1090,45 +1155,25 @@ def main():
                      ]
                     )
 
-    # Define the list of available treatment heads
-    # https://stackoverflow.com/questions/1867861/how-to-keep-keys-values-in-same-order-as-declared
-    linacs = OrderedDict()
-    linacs[agility.name] = agility
-    linacs[proteus.name] = proteus
-    linacs[trilogy.name] = trilogy
-    linacs[truebeam.name] = truebeam
-    # Define the list of available couches
-    couches = OrderedDict()
-    couches[evo.name] = evo
-    couches[robot.name] = robot
-
-    # GUI initialization. Some variables below are global
-
-    # Select first which treatment head to use
-    form = SelectListForm(linacs, "LINAC")
-    Application.Run(form)
-    global linac
-    linac = linacs[form.name]
-
-    # Select which subparts of the treatment head you want to draw
-    pform = SelectPartsForm(linac)
-    Application.Run(pform)
-
-    # Select now which couch to use
-    cform = SelectListForm(couches, "patient couch")
-    Application.Run(cform)
-    global couch
-    couch = couches[cform.name]
-
-    # Select which subparts of the couch you want to draw
-    pcform = SelectPartsForm(couch)
-    Application.Run(pcform)
-
     # Get now the currently opened RayStation patient
     global case
     case = get_current('Case')
     global examination
     examination = get_current('Examination')
+    global beamset
+    global machineName
+    global couchName
+    try:
+        beamset = get_current('BeamSet')
+        machineName = beamset.MachineReference.MachineName
+        if machineName == 'MGH Agility':  # To do: move this to a dictionary of the setup layer
+            couchName = 'Hexapod Evo' # Or read this info from Machine_DB
+        else:
+            couchName = ''
+    except SystemError:
+        beamset = None
+        machineName = ''
+        couchName = ''
     global structure_set
     structure_set = case.PatientModel.StructureSets[examination.Name]
     orientation = examination.PatientPosition
@@ -1148,20 +1193,64 @@ def main():
     gs = gantry_direction[orientation]
     cs = couch_direction[orientation]
 
+    # Define the list of available treatment heads
+    # https://stackoverflow.com/questions/1867861/how-to-keep-keys-values-in-same-order-as-declared
+    linacs = OrderedDict()
+    linacs[agility.name] = agility
+    linacs[proteus.name] = proteus
+    linacs[trilogy.name] = trilogy
+    linacs[truebeam.name] = truebeam
+    # Define the list of available couches
+    couches = OrderedDict()
+    couches[evo.name] = evo
+    couches[robot.name] = robot
+
+    # GUI initialization. Some variables below are global
+
+    # Select first which treatment head to use
+    global linac
+    if linacs.has_key(machineName):
+        # Select it based on treatment plan info
+        linac = linacs[machineName]
+    else:
+        # Prompt user to select it
+        form = SelectListForm(linacs, "LINAC")
+        Application.Run(form)
+        linac = linacs[form.name]
+
+    # Select which subparts of the treatment head you want to draw
+    pform = SelectPartsForm(linac)
+    Application.Run(pform)
+
+    # Select now which couch to use
+    global couch
+    if couches.has_key(couchName):
+        # Select it based on treatment plan info
+        couch = couches[couchName]
+    else:
+        # Prompt user to select it
+        cform = SelectListForm(couches, "patient couch")
+        Application.Run(cform)
+        couch = couches[cform.name]
+
+    # Select which subparts of the couch you want to draw
+    pcform = SelectPartsForm(couch)
+    Application.Run(pcform)
+
     # Check if Isocenter has already been defined, if not, wait until defined, then continue
     poi_type = 'Isocenter'
     poi_lst = [r.Type for r in case.PatientModel.PointsOfInterest]
     while poi_type not in poi_lst:
-        await_user_input('Please click OK and define an "'+poi_type+'" POI, then click on Play Script')
+        await_user_input('Please click OK and define an "'+poi_type+'" POI in the Patient Modelling Tab, then click on Play Script')
         poi_lst = [r.Type for r in case.PatientModel.PointsOfInterest]
 
     # If there are more than one isocenter, ask the user to confirm which one to use
     global iso
     if poi_lst.count(poi_type) > 1:
         isocenters = [r.Name for r in case.PatientModel.PointsOfInterest if r.Type == poi_type]
-        print(isocenters)
+        #print(isocenters)
         isolist = {isocenters[i]: i for i in range(0, len(isocenters))}
-        print(isolist)
+        #print(isolist)
         isoform = SelectListForm(isolist, "Isocenter")
         Application.Run(isoform)
         iso = structure_set.PoiGeometries[isoform.name].Point
