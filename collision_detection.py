@@ -1025,8 +1025,8 @@ def remove_models():
 
 def await_col_report(arg):
     """
-    This function is used for checking collision for each beam in a beamset
-    :param arg: the textbox object
+    This function is used for checking collision for each beam in a beamset, or for every step of the arc
+    :param arg: the tune form GUI object
     """
     try:
         deliveryTechnique = beamset.DeliveryTechnique
@@ -1035,6 +1035,10 @@ def await_col_report(arg):
             couch_angle = beam.CouchRotationAngle
             stop_gantry_angle = beam.ArcStopGantryAngle
             arc_direction = beam.ArcRotationDirection
+            beamiso = beam.Isocenter.Position
+            if iso.x != beamiso.x or iso.y != beamiso.y or iso.z != beamiso.z:
+                print('Beam Iso different than initially selected Iso is not supported yet', iso.x, iso.y, iso.z, beamiso.x, beamiso.y, beamiso.z)
+                continue
             sampling_angles = [gantry_angle]
             # If arc defined, sample it every degree and calculate collision in each step
             if deliveryTechnique=='DynamicArc' and stop_gantry_angle is not None and arc_direction != 'None':
