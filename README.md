@@ -1,8 +1,8 @@
 # RadCollision
 
-RadCollision is an open-source platform for designed to aid treatment planners in the choice of beam incidence angles that do not collide with the patient or couch. Currently, only the RayStation TPS is supported.
+RadCollision is an open-source platform designed to aid treatment planners in the choice of beam incidence angles that do not collide with the patient or couch. Currently, only the RayStation TPS is supported.
 It loads a 3D model of a LINAC into RayStation, that can be rotated interactively to assess colission risk.
-It is written in the native IronPython scripting language of the RayStation interface.
+The interface layer is written in the native IronPython scripting language of the RayStation interface.
 
 Licensing
 ---------
@@ -37,6 +37,7 @@ How to use
 Known issues
 ------------
 
+- See https://github.com/mghro/rad-collision/issues
 - It does not handle yet custom PatientOrientations
 - RayStation (9A) crashes if you import STL geometries that are not closed surfaces
 - RayStation (9A) crashes when calculating DSC for very complex geometries with holes
