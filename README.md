@@ -9,7 +9,7 @@ Licensing
 
 This software platform is open-source. You can use, modify and contribute to it. Original attribution/citation shall be granted to:
 
-Hueso-González et al. - Biomed Phys Eng Express 2020, "An open-source platform for interactive collision prevention in photon and particle beam therapy treatment planning". https://doi.org/10.1088/2057-1976/aba442
+Hueso-González et al. - Biomed Phys Eng Express 2020, "An open-source platform for interactive collision prevention in photon and particle beam therapy treatment planning". https://doi.org/10.1088/2057-1976/aba442 https://arxiv.org/abs/2007.05248
 
 
 Requirements
@@ -52,4 +52,4 @@ Massachusetts General Hospital and Harvard Medical School
 Acknowledgment
 --------------
 
-See corresponding section on https://doi.org/10.1088/2057-1976/aba442
+See corresponding section on https://doi.org/10.1088/2057-1976/aba442 https://arxiv.org/abs/2007.05248
