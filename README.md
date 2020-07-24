@@ -39,8 +39,8 @@ Known issues
 
 - See https://github.com/mghro/rad-collision/issues
 - It does not handle yet custom PatientOrientations
-- RayStation (9A) crashes if you import STL geometries that are not closed surfaces
-- RayStation (9A) crashes when calculating DSC for very complex geometries with holes
+- RayStation (10A) crashes if you import STL geometries that are not closed surfaces
+- RayStation (10A) crashes when calculating DSC for very complex geometries with holes
 
 
 Created and documented by
