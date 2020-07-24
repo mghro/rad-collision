@@ -52,4 +52,4 @@ Massachusetts General Hospital and Harvard Medical School
 Acknowledgment
 --------------
 
-See https://doi.org/10.1088/2057-1976/aba442
+See corresponding section on https://doi.org/10.1088/2057-1976/aba442
