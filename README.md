@@ -46,7 +46,7 @@ Known issues
 Created and documented by
 -------------------------
 
-Fernando Hueso-Gonzalez - fhuesogonzalez@mgh.harvard.edu
+Fernando Hueso-González - fhuesogonzalez@mgh.harvard.edu
 Massachusetts General Hospital and Harvard Medical School
 
 Acknowledgment
