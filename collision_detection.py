@@ -1151,7 +1151,7 @@ def main():
                    Part("Head support", "HeadAdapter.stl", "Green", False),
                    ]
                   )
-    robot = Machine("Sciss Robot", "Scissor Robot\\",
+    robot = Machine("Sciss Robot", datapath + "Scissor Robot\\",
                     [Part("Couch", "Couch.stl", "Green", True),
                      Part("Scissor pedestal", "ScissorPedestal.stl", "Gray", True, False, True, False, True),
                      Part("Scissor base", "ScissorBase.stl", "Gray", True, False, True, False, True),
