@@ -903,20 +903,27 @@ def transform_models():
                         moved = True
 
     if len(lsci) >= 2:  # scissor robot defined. Distances below are hard coded for the moment
+        # bangle refers to angle of bottom arm, tangle refers to angle of top arm
         global bangle, tangle, oldbangle, oldtangle
-        bs = 170  # cm
-        lb = 120
-        lt = 100
+        bs = 170  # cm Distance bottom support pedestal to isocenter
+        lb = 120  # cm Length of bottom arm
+        lt = 100  # cm Length of top arm
         rholim = lt + lb  # cm = 1.2 m plus 1 m
+        # Point bx, bz is the anchor point of the bottom arm in the ground (in the pedestal).
+        # Note that, in the same way than for the couch, a couch angle is simulated by rotating the room, not the patient or couch
         bx = iso.x - bs*sin(cs*cangle)
         bz = iso.z + bs*cos(cs*cangle)
         oldbx = iso.x - bs*sin(cs*oldcangle)
         oldbz = iso.z + bs*cos(cs*oldcangle)
+        # Point tx, tz is the anchor position of the top arm in the couch
         tx = iso.x + dx0 + cx
         tz = iso.z + dz0 + cz
+        # Point xd, zd is the difference between both anchor points
         xd = bx - tx
         zd = bz - tz
+        # rho is the air-distance between bottom and top anchor points
         rho = sqrt(xd*xd + zd*zd)
+        # Check if that virtual distance is reachable with the arms completely extended
         failed = rho > rholim
 
         if failed:
@@ -925,7 +932,8 @@ def transform_models():
             bangle = cangle + radians(180)
             tangle = cangle
         else:
-            # solve SSS triangle https://www.mathsisfun.com/algebra/trig-solving-sss-triangles.html
+            # solve SSS triangle https://www.mathsisfun.com/algebra/trig-solving-sss-triangles.html between points
+            # The triangle vertices are (bx,bz), (tx,tz), and the joint between bottom and top arms
             a = lt
             b = lb
             c = rho
@@ -946,11 +954,11 @@ def transform_models():
                 dy = cy - oldcy
                 dz = cz - oldcz
 
-                if i == 0:
+                if i == 0:  # Bottom arm
                     d = cs * (bangle - oldbangle)
-                elif i == 1:
+                elif i == 1:  # Top arm
                     d = cs * (tangle - oldtangle)
-                else:
+                else:  # Pedestal
                     d = cs * (cangle - oldcangle)
 
                 if not part.moveX:
@@ -960,15 +968,15 @@ def transform_models():
                 if not part.moveZ:
                     dz = 0
 
-                if i == 0:
+                if i == 0:  # Bottom arm
                     rtpx = oldbx  # rotation point
                     rtpz = oldbz  # rotation point
                     dx = -bs*(sin(cs*cangle)-sin(cs*oldcangle))
                     dz =  bs*(cos(cs*cangle)-cos(cs*oldcangle))
-                elif i == 1:
+                elif i == 1:  # Top arm
                     rtpx = iso.x + dx0 + oldcx
                     rtpz = iso.z + dz0 + oldcz
-                else:
+                else:  # Pedestal
                     rtpx = iso.x
                     rtpz = iso.z
 
