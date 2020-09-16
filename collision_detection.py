@@ -955,9 +955,9 @@ def transform_models():
                 dz = cz - oldcz
 
                 if i == 0:  # Bottom arm
-                    d = cs * (bangle - oldbangle)
+                    d = -1 * (bangle - oldbangle)  # were already calculated with cs in the formula
                 elif i == 1:  # Top arm
-                    d = cs * (tangle - oldtangle)
+                    d = -1 * (tangle - oldtangle)  # were already calculated with cs in the formula
                 else:  # Pedestal
                     d = cs * (cangle - oldcangle)
 
