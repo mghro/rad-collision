@@ -5,7 +5,7 @@
 #
 # Fernando Hueso-González - fhuesogonzalez@mgh.harvard.edu
 # Massachusetts General Hospital and Harvard Medical School
-# Cite as: Hueso-González et al, Biomed Phys Eng Express 2020
+# Cite as: F Hueso-González et al 2020 - Biomed. Phys. Eng. Express 6 055013, "An open-source platform for interactive collision prevention in photon and particle beam therapy treatment planning". https://doi.org/10.1088/2057-1976/aba442 https://arxiv.org/abs/2007.05248
 #
 # Loads a 3D model of a radiotherapy treatment head and patient couch into RayStation for collision detection
 #
