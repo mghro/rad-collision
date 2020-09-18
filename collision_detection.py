@@ -5,7 +5,8 @@
 #
 # Fernando Hueso-González - fhuesogonzalez@mgh.harvard.edu
 # Massachusetts General Hospital and Harvard Medical School
-# Cite as: F Hueso-González et al 2020 - Biomed. Phys. Eng. Express 6 055013, "An open-source platform for interactive collision prevention in photon and particle beam therapy treatment planning". https://doi.org/10.1088/2057-1976/aba442 https://arxiv.org/abs/2007.05248
+# Cite as: F Hueso-González et al 2020 - Biomed. Phys. Eng. Express 6 055013, "An open-source platform for interactive collision prevention in photon and particle beam therapy treatment planning".
+# https://doi.org/10.1088/2057-1976/aba442 https://arxiv.org/abs/2007.05248
 #
 # Loads a 3D model of a radiotherapy treatment head and patient couch into RayStation for collision detection
 #
@@ -904,17 +905,17 @@ def transform_models():
 
     if len(lsci) >= 2:  # scissor robot defined. Distances below are hard coded for the moment
         # bangle refers to angle of bottom arm, tangle refers to angle of top arm
-        global bangle, tangle, oldbangle, oldtangle
+        global bangle, tangle, oldbangle, oldtangle, aO
         bs = 170  # cm Distance bottom support pedestal to isocenter
         lb = 120  # cm Length of bottom arm
         lt = 100  # cm Length of top arm
         rholim = lt + lb  # cm = 1.2 m plus 1 m
         # Point bx, bz is the anchor point of the bottom arm in the ground (in the pedestal).
         # Note that, in the same way than for the couch, a couch angle is simulated by rotating the room, not the patient or couch
-        bx = iso.x - bs*sin(cs*cangle)
-        bz = iso.z + bs*cos(cs*cangle)
-        oldbx = iso.x - bs*sin(cs*oldcangle)
-        oldbz = iso.z + bs*cos(cs*oldcangle)
+        bx = iso.x - aO[0]*bs*sin(cangle)
+        bz = iso.z - aO[2]*bs*cos(cangle)
+        oldbx = iso.x - aO[0]*bs*sin(oldcangle)
+        oldbz = iso.z - aO[2]*bs*cos(oldcangle)
         # Point tx, tz is the anchor position of the top arm in the couch
         tx = iso.x + dx0 + cx
         tz = iso.z + dz0 + cz
@@ -934,20 +935,22 @@ def transform_models():
         else:
             # solve SSS triangle https://www.mathsisfun.com/algebra/trig-solving-sss-triangles.html between points
             # The triangle vertices are (bx,bz), (tx,tz), and the joint between bottom and top arms
+            # See https://github.com/mghro/rad-collision/issues/17
             a = lt
             b = lb
             c = rho
             alpha = acos((b*b+c*c-a*a)/2/b/c)
             beta = acos((a*a+c*c-b*b)/2/c/a)
-            delta = atan2(xd, zd)
+            delta = atan2(xd, zd) + acos(-aO[2])  # atan2(y,x) = atan2(y=xd, x=zd)
             bangle = (delta + alpha)
             tangle = -(beta - delta)
             global flip
             if flip:
                 bangle -= 2*alpha
                 tangle += 2*beta
+            #print("B",bx,bz, "T",tx,tz,"X",xd,zd,"a_b_c",a,b,c,"alpha_beta_delta",alpha,beta,delta,"bang_tang",bangle,tangle)
 
-        if abs(bangle - oldbangle) > 0 or abs(tangle - oldtangle) > 0 or abs(cangle - oldcangle) > 0:
+        if abs(bangle - oldbangle) > 0 or abs(tangle - oldtangle) > 0 or abs(cangle - oldcangle) > 0 or failed:  # if it fails repeatedly, there is no rotation, but we must still perform the action, because the top arm has to follow the anchor point of the moving couch. Otherwise, there will be a small offset when going back to the accepted region, due to jump in the slider
             for i, roi_name in enumerate(lsci):
                 part = [p for p in couch.parts if p.name == roi_name][0]
                 dx = cx - oldcx
@@ -971,14 +974,15 @@ def transform_models():
                 if i == 0:  # Bottom arm
                     rtpx = oldbx  # rotation point
                     rtpz = oldbz  # rotation point
-                    dx = -bs*(sin(cs*cangle)-sin(cs*oldcangle))
-                    dz =  bs*(cos(cs*cangle)-cos(cs*oldcangle))
+                    dx =  -aO[0]*bs*(sin(cangle)-sin(oldcangle))
+                    dz =  -aO[2]*bs*(cos(cangle)-cos(oldcangle))
                 elif i == 1:  # Top arm
                     rtpx = iso.x + dx0 + oldcx
                     rtpz = iso.z + dz0 + oldcz
                 else:  # Pedestal
                     rtpx = iso.x
                     rtpz = iso.z
+                #print(i,"d",d,"iso",iso.x,iso.z,"couch",cx,cz,"oldcouch",oldcx,oldcy,"rtp",rtpx,rtpz,"dif",dx,dz,"oldif",dx0,dz0)
 
                 case.PatientModel.RegionsOfInterest[roi_name].TransformROI3D(Examination=examination, TransformationMatrix={
                     'M11': cos(d), 'M12': 0, 'M13': -sin(d), 'M14': rtpx - rtpx*cos(d) + rtpz*sin(d) + dx,
@@ -1197,13 +1201,17 @@ def main():
     couch_angle_offset =  {'HFS': 180, 'FFS':   0, 'HFP': 180, 'FFP':  0}
     gantry_direction =    {'HFS':  -1, 'FFS':  -1, 'HFP':  -1, 'FFP': -1}
     couch_direction =     {'HFS':  -1, 'FFS':  -1, 'HFP':   1, 'FFP':  1}
+    axes_signs =          {'HFS':  [1,1,1], 'FFS':  [-1,1,-1], 'HFP':   [-1,-1,1], 'FFP':  [1,-1,-1]}
     # g0, c0 are the needed gantry angle and couch angle rotation of the 3D model to match this patient orientation
     # gs, cs are the rotation direction signs to be applied in order to match this patient orientation
-    global g0, c0, gs, cs
+    # aO is the three axes signs to be applied to match this patient orientation
+    # cs is redundant with -aO[1] but we keep it for convenience
+    global g0, c0, gs, cs, aO
     g0 = radians(gantry_angle_offset[orientation])
     c0 = radians(couch_angle_offset[orientation])
     gs = gantry_direction[orientation]
     cs = couch_direction[orientation]
+    aO = axes_signs[orientation]
 
     # Define the list of available treatment heads
     # https://stackoverflow.com/questions/1867861/how-to-keep-keys-values-in-same-order-as-declared
