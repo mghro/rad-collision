@@ -1052,9 +1052,9 @@ def await_col_report(arg):
         for beam in beamset.Beams:
             gantry_angle = beam.GantryAngle
             try:  # https://github.com/mghro/rad-collision/issues/18
-                couch_angle = beam.CouchRotationAngle  # radiotherapy
+                couch_angle = beam.CouchRotationAngle  # RayStation 9B and higher
             except:
-                couch_angle = beam.CouchAngle  # proton therapy
+                couch_angle = beam.CouchAngle  # legacy
             stop_gantry_angle = beam.ArcStopGantryAngle
             arc_direction = beam.ArcRotationDirection
             beamiso = beam.Isocenter.Position
