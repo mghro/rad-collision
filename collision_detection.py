@@ -1044,7 +1044,10 @@ def await_col_report(arg):
         deliveryTechnique = beamset.DeliveryTechnique
         for beam in beamset.Beams:
             gantry_angle = beam.GantryAngle
-            couch_angle = beam.CouchRotationAngle
+            try:  # https://github.com/mghro/rad-collision/issues/18
+                couch_angle = beam.CouchRotationAngle  # radiotherapy
+            except:
+                couch_angle = beam.CouchAngle  # proton therapy
             stop_gantry_angle = beam.ArcStopGantryAngle
             arc_direction = beam.ArcRotationDirection
             beamiso = beam.Isocenter.Position
