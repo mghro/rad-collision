@@ -42,6 +42,13 @@
 # However, the 2D viewer looks different for HFS orientation or any other, as they maintain the CT acquisition orientation
 # and move instead the labels R, L, A, P, S, I.
 # Note also that the coordinates you see in the RayStation Viewer are not xyz, but RL, IS, PA, with RL = x, IS = z, PA = -y
+# For example, for HFS orientation, the 2D coordinate system is:
+# |------> x
+# |
+# |
+# V
+# y
+# and z completes the triad (pointing away from you, reader)
 #
 # Let us define some rotation angles:
 # a: rotation around z axis (from x to y axis), represented by a classical rotation matrix R_z, with R_z[row=1,column=2] = -sin(a)
