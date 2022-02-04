@@ -24,6 +24,7 @@ Alternative solutions are described here:
 * Visual C#.Net: https://doi.org/10.1002/acm2.12963
 * MATLAB: https://doi.org/10.1002/acm2.12998
 * Unity 3D: https://doi.org/10.3389/fonc.2021.617007
+* Varian: https://doi.org/10.1002/acm2.13496
 
 Licensing
 ---------
