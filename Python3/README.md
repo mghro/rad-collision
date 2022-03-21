@@ -12,6 +12,7 @@ Requirements
 
 - Python3
 - pip3 install numpy math stl matplotlib mpl_toolkits tkinter vtk argparse itertools vedo
+- 3D model of your nozzle, couch and patient as STL files
 
 For first attempts, you can use the open-source STL files stored in this [PR](https://github.com/mghro/rad-collision/issues/21#issuecomment-1073840985) or in [https://github.com/SlicerRt/SlicerRT/tree/master/RoomsEyeView/TreatmentMachineModels](SlicerRT).
 
