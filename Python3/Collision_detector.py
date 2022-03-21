@@ -203,9 +203,9 @@ def get_program_parameters():
     '''
     parser = argparse.ArgumentParser(description='Process some integers.')
 
-    parser.add_argument('--fileGantry', dest='fileGantry', type=str)
-    parser.add_argument('--fileCouch', dest='fileCouch', type=str)
-    parser.add_argument('--fileBody', dest='fileBody', type=str)
+    parser.add_argument('--fileGantry', dest='fileGantry', type=str, required=True)
+    parser.add_argument('--fileCouch', dest='fileCouch', type=str, required=True)
+    parser.add_argument('--fileBody', dest='fileBody', type=str, required=True)
     parser.add_argument('--RotPat', dest='RotPat',default=False, type=bool)
     args = parser.parse_args()
 
