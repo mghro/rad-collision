@@ -309,7 +309,7 @@ def plot_something(gantry,couch,body,wix,wiy,wiz,wpx,wpy,w1,w2,figure):
     HayChoque = HayChoque1 or HayChoque2 or HayChoque3
     
     if HayChoque==False:
-        print("No hay choque en esta configuración")
+        print("No collision in this configuration")
         
         global axes
         if axes.collections:
@@ -333,7 +333,7 @@ def plot_something(gantry,couch,body,wix,wiy,wiz,wpx,wpy,w1,w2,figure):
         
         
     else:
-        print("Ese conjunto de condiciones produce una colisión. Inserte otros valores")
+        print("This set of conditions results in a collision. Insert other values")
         
     
     
@@ -415,15 +415,15 @@ def main():
     master = tk.Tk()
     master.geometry("600x800")
     
-    my_label1 = tk.Label(master,text="Ángulo Gantry").place(x=250, y = 0)
+    my_label1 = tk.Label(master,text="Gantry angle").place(x=250, y = 0)
     w1 = tk.Scale(master, from_=0, to=360, tickinterval=90)
     w1.place(x = 250, y = 30)
     
-    my_label2 = tk.Label(master,text="Ángulo Camilla").place(x = 250, y = 150)
+    my_label2 = tk.Label(master,text="Couch angle").place(x = 250, y = 150)
     w2 = tk.Scale(master, from_=0, to=180, tickinterval=45)
     w2.place(x = 250, y = 180)
     
-    my_label3 = tk.Label(master,text="Posición Isocentro").place(x = 250, y = 300)
+    my_label3 = tk.Label(master,text="Isocenter position").place(x = 250, y = 300)
     
     my_labelix = tk.Label(master,text="X").place(x = 50, y = 330)
     wix = tk.Scale(master,  from_=-500, to=500, tickinterval=250)
@@ -437,7 +437,7 @@ def main():
     wiz = tk.Scale(master, from_=-500, to=500, tickinterval=250)
     wiz.place(x = 450, y = 360)
         
-    my_label4 = tk.Label(master,text="Posición Paciente").place(x = 250, y = 520)
+    my_label4 = tk.Label(master,text="Patient position").place(x = 250, y = 520)
     
     my_labelpx = tk.Label(master,text="X").place(x = 50, y = 550)
     wpx = tk.Scale(master, from_=-150, to=150, tickinterval=75)
