@@ -404,9 +404,9 @@ def main():
     scale3 = couch.points.flatten()
     scale = np.concatenate([scale1,scale2,scale3])
     axes.auto_scale_xyz(scale, scale, scale)
-    axes.set_xlabel('$X$')
-    axes.set_ylabel('$Y$')
-    axes.set_zlabel('$Z$')        
+    axes.set_xlabel('$X$ / mm')
+    axes.set_ylabel('$Y$ / mm')
+    axes.set_zlabel('$Z$ / mm')        
     
     # Show the plot to the screen
     pyplot.show()
@@ -433,17 +433,17 @@ def main():
     wiy = tk.Scale(master, from_=-1500, to=1500, tickinterval=750)
     wiy.place(x = 250, y = 360)
     
-    my_labeliz = tk.Label(master,text="Z").place(x = 450, y = 330)
+    my_labeliz = tk.Label(master,text="Z / mm").place(x = 450, y = 330)
     wiz = tk.Scale(master, from_=-500, to=500, tickinterval=250)
     wiz.place(x = 450, y = 360)
         
     my_label4 = tk.Label(master,text="Patient position").place(x = 250, y = 520)
     
-    my_labelpx = tk.Label(master,text="X").place(x = 50, y = 550)
+    my_labelpx = tk.Label(master,text="X / mm").place(x = 50, y = 550)
     wpx = tk.Scale(master, from_=-150, to=150, tickinterval=75)
     wpx.place(x = 50, y = 580)
     
-    my_labelpy = tk.Label(master,text="Y").place(x = 250, y = 550)
+    my_labelpy = tk.Label(master,text="Y / mm").place(x = 250, y = 550)
     wpy = tk.Scale(master, from_=-150, to=150, tickinterval=75)
     wpy.place(x = 250, y = 580)    
     
