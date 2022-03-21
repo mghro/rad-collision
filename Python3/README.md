@@ -29,6 +29,16 @@ Example: `python3 Collision_detector.py --fileGantry RotatingHeads.stl --fileCou
 
 [![screenshot](screenshot.png)](screenshot.png)
 
+
+3D model format
+---------------
+
+- The file type should be STL
+- The model origin shall be in the isocenter
+- The perspective should match that of an observer standing in front of the gantry
+- More information is given in the header of https://github.com/mghro/rad-collision/blob/split/RayStation/collision_detection.py
+
+
 Authors
 -------
 
