@@ -1,4 +1,4 @@
-[//]: # (RadCollision - RayStation)
+[//]: # (RadCollision-RayStation)
 
 This folder contains one flavor (or interface layer) of RadCollision. For other languages, consult https://github.com/mghro/rad-collision
 
@@ -13,7 +13,7 @@ Requirements
 - Raystation version 8B or higher
 - 3D model of your nozzle and couch (optional) as STL files
 
-For first attempts, you can use the open-source files stored in SlicerRT:
+For first attempts, you can use the open-source STL files stored in SlicerRT:
 https://github.com/SlicerRt/SlicerRT/tree/master/RoomsEyeView/TreatmentMachineModels
 
 How to use
@@ -38,3 +38,8 @@ Known issues
 - It does not handle yet custom PatientOrientations
 - RayStation (10A) crashes if you import STL geometries that are not closed surfaces
 - RayStation (10A) crashes when calculating DSC for very complex geometries with holes
+
+Authors
+-------
+
+- F. Hueso-González
