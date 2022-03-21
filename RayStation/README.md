@@ -13,8 +13,7 @@ Requirements
 - Raystation version 8B or higher
 - 3D model of your nozzle and couch (optional) as STL files
 
-For first attempts, you can use the open-source STL files stored in SlicerRT:
-https://github.com/SlicerRt/SlicerRT/tree/master/RoomsEyeView/TreatmentMachineModels
+For first attempts, you can use the open-source STL files stored in this [PR](https://github.com/mghro/rad-collision/issues/21#issuecomment-1073840985) or in [https://github.com/SlicerRt/SlicerRT/tree/master/RoomsEyeView/TreatmentMachineModels](SlicerRT).
 
 How to use
 ----------

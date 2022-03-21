@@ -41,16 +41,6 @@ F Hueso-González et al 2020 - Biomed. Phys. Eng. Express 6 055013, "An open-sou
 
 Please be aware that some submodules used by this software platform contain other licenses specific to these repositories.
 
-Requirements
-------------
-
-- Raystation 8B or higher
-- 3D model of your nozzle and couch (optional) as STL files
-
-For first attempts, you can use the open-source files stored in SlicerRT:
-https://github.com/SlicerRt/SlicerRT/tree/master/RoomsEyeView/TreatmentMachineModels
-
-
 Created and documented by
 -------------------------
 
