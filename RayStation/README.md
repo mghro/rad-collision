@@ -22,6 +22,9 @@ How to use
 - Modify the path where the STL files are stored, to point at your own drive
 
 
+[![screenshot](screenshot.png)](screenshot.png)
+
+
 3D model format
 ---------------
 
