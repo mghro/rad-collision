@@ -5,7 +5,12 @@ This folder contains one flavor (or interface layer) of RadCollision. For other 
 Licensing
 ---------
 
-Please refer to https://github.com/mghro/rad-collision/blob/main/README.md
+Please refer to https://github.com/mghro/rad-collision/blob/main/README.md and https://github.com/mghro/rad-collision/blob/main/LICENSE
+
+Citation
+--------
+
+F Hueso-González et al 2020 - Biomed. Phys. Eng. Express 6 055013, "An open-source platform for interactive collision prevention in photon and particle beam therapy treatment planning". https://doi.org/10.1088/2057-1976/aba442 https://arxiv.org/abs/2007.05248
 
 Requirements
 ------------
