@@ -3,7 +3,7 @@
 <img src="logo.svg" alt="Logo" width="200"/>
 
 RadCollision is an open-source platform designed to aid treatment planners in the choice of beam incidence angles that do not collide with the patient or couch.
-It loads a 3D model of a LINAC and or couch into a 3D window, that can be rotated interactively to assess collision risk. One can also load a 3D scan of the patient done e.g. with a smartphone, if full patient geometry is needed.
+It loads a 3D model (STL file) of a LINAC and/or couch into a 3D window, that can be rotated interactively to assess collision risk. One can also load a 3D scan of the patient done e.g. with a smartphone, if full patient geometry is needed.
 
 The (currently available) interface layers of the RadCollision platform are:
 * <a href="https://github.com/SlicerRt/SlicerRT">SlicerRT</a> (C++) -- full integration into <a href="http://perk.cs.queensu.ca/sites/perkd7.cs.queensu.ca/files/Suriyakumar2017a.pdf">open-source TPS</a>
