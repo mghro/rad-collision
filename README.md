@@ -6,9 +6,10 @@ RadCollision is an open-source platform designed to aid treatment planners in th
 It loads a 3D model of a LINAC and or couch into a 3D window, that can be rotated interactively to assess collision risk. One can also load a 3D scan of the patient done e.g. with a smartphone, if full patient geometry is needed.
 
 The (currently available) interface layers of the RadCollision platform are:
-* RayStation (IronPython scripting language) -- full integration into proprietary TPS
-* Python 3 -- independent of TPS
-* MATLAB -- independent of TPS
+* <a href="https://github.com/SlicerRt/SlicerRT">SlicerRT</a> (C++) -- full integration into <a href="http://perk.cs.queensu.ca/sites/perkd7.cs.queensu.ca/files/Suriyakumar2017a.pdf">open-source TPS</a>
+* <a href="RayStation">RayStation</a> (IronPython) -- full integration into proprietary TPS
+* <a href="Python3">Python 3</a> -- independent of TPS
+* <a href="https://github.com/jlhue/rad-collision-matlab/">MATLAB</a> -- independent of TPS
 
 For RayStation, Here are some screenshots of the capabilities and a news release:
 * https://www.youtube.com/watch?v=TlFGaw2NK6Q
@@ -18,12 +19,8 @@ For RayStation, Here are some screenshots of the capabilities and a news release
 Alternatives
 ------------
 
-For a fully open-source solution for collision detection including the TPS planning, please refer to https://github.com/SlicerRt/SlicerRT
-http://perk.cs.queensu.ca/sites/perkd7.cs.queensu.ca/files/Suriyakumar2017a.pdf
-
 Alternative solutions are described here:
 * References of https://doi.org/10.1088/2057-1976/aba442
-* SlicerRT: http://perk.cs.queensu.ca/sites/perkd7.cs.queensu.ca/files/Suriyakumar2017a.pdf
 * Eclipse: https://doi.org/10.1002/acm2.12673
 * Pinnacle: https://doi.org/10.1002/acm2.12915 https://aapm.onlinelibrary.wiley.com/doi/abs/10.1118/1.4924827
 * Visual Basic: https://doi.org/10.1016/j.canrad.2020.01.003
