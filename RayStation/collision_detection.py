@@ -1111,7 +1111,7 @@ def detect_collision(arg):
             lres = aform.reports[idx][0]
             ldsc = aform.reports[idx][1]
             result = structure_set.ComparisonOfRoiGeometries(RoiA=roia, RoiB=roib)
-            # Alternatively, one could use RoiSurfaceToSurfaceDistanceBasedOnDT(..) or
+            # Alternatively, one could use RoiSurfaceToSurfaceDistanceBasedOnDT(..)
             safe = (((result['DiceSimilarityCoefficient'] - abs(result['Precision'])) <= 0.0) or (result['DiceSimilarityCoefficient'] < 5e-5))
             lres.Text = 'OK' if safe else '!COLL!'
             lres.ForeColor = Color.Green if safe else Color.Red
