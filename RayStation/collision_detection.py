@@ -128,10 +128,11 @@ from connect import get_current, await_user_input
 import clr
 clr.AddReference("System.Windows.Forms")
 clr.AddReference("System.Drawing")
+import threading
+import platform
 from System.Windows.Forms import Application, Form, Label, ComboBox, Button, TextBox, TrackBar, FormStartPosition, TickStyle, Keys, CheckBox, GroupBox#, DataGridView
 from System.Drawing import Point, Size, Color#, SolidBrush, Graphics
 from System.Threading import ParameterizedThreadStart, ThreadStart, Thread, ThreadInterruptedException, ThreadAbortException, SpinWait
-from System.Environment import ProcessorCount
 
 
 class Part:
@@ -205,7 +206,7 @@ class SelectListForm(Form):
 
         # Add a ComboBox that will display the items of this list
         self.combobox = ComboBox()
-        self.combobox.DataSource = lst.keys()
+        self.combobox.DataSource = list(lst.keys())
         self.combobox.Location = Point(15, 60)
         self.combobox.AutoSize = True
         self.Controls.Add(self.combobox)
@@ -463,7 +464,7 @@ class TuneModelsForm(Form):
         col_box = GroupBox()
         col_box.Text = 'Collision report (increases CPU load of server)'
         col_box.Location = Point(15, lastpos + colmargin)
-        col_box.Size = Size(450, colheight + colmargin / 2)
+        col_box.Size = Size(450, int(colheight + colmargin / 2))
 
         self.col_pairs = []
         self.col_cb = []
@@ -655,13 +656,19 @@ class TuneModelsForm(Form):
         :param _sender:  ignore
         :param _event: ignore
         """
-
         if 'colthreads' in globals():
-            for th in colthreads:
-                if th.IsAlive:
-                    th.Interrupt()
-                    if th.IsAlive and not th.Join(100):
-                        th.Abort()
+            if platform.python_implementation()=="IronPython":
+                for th in colthreads:
+                    if th.IsAlive:
+                        th.Interrupt()
+                        if th.IsAlive and not th.Join(100):
+                            th.Abort()
+            else:
+                for th in colthreads:
+                    if th.is_alive():
+                        th.Interrupt()
+                        if th.is_alive() and not th.join(100):
+                            th.Abort()
 
         self.Close()
 
@@ -695,13 +702,23 @@ class TuneModelsForm(Form):
         if 'beamthread' not in globals():
             global beamthread
             beamthread = Thread(ParameterizedThreadStart(await_col_report))
-        elif beamthread.IsAlive:
-            beamthread.Interrupt()
-            if beamthread.IsAlive and not beamthread.Join(100):
-                beamthread.Abort()
-
+        else:
+            if platform.python_implementation() == 'IronPython':
+                if beamthread.IsAlive:
+                    beamthread.Interrupt()
+                    if beamthread.IsAlive and not beamthread.Join(100):
+                        beamthread.Abort()
+            else:
+                if beamthread.is_alive():
+                    beamthread.Interrupt()
+                    if beamthread.is_alive() and not beamthread.join(100):
+                        beamthread.Abort()
         beamthread = Thread(ParameterizedThreadStart(await_col_report))
-        beamthread.Start(self)
+        if platform.python_implementation() == 'IronPython':
+            beamthread.Start(self)
+        else:
+            beamthread.start(self)
+
 
     def transform(self):
         """
@@ -1006,11 +1023,18 @@ def transform_models():
         if 'colthreads' not in globals():
             global colthreads
         else:
-            for th in colthreads:
-                if th.IsAlive:
-                    th.Interrupt()
-                    if th.IsAlive and not th.Join(100):
-                        th.Abort()
+            if platform.python_implementation()=="IronPython":
+                for th in colthreads:
+                    if th.IsAlive:
+                        th.Interrupt()
+                        if th.IsAlive and not th.Join(100):
+                            th.Abort()
+            else:
+                for th in colthreads:
+                    if th.is_alive():
+                        th.Interrupt()
+                        if th.is_alive() and not th.join(100):
+                            th.Abort()
 
         if len(coltag) == maxColThreads * 6:  # If nothing selected, just separators " \t \t0\n" for each row, remove everything
             for labels in aform.reports:
@@ -1025,7 +1049,10 @@ def transform_models():
                 roia, roib, enable = colpair.split('\t')
                 if roia in roi_lst and roib in roi_lst and int(enable) != 0:
                     colthreads.append(Thread(ParameterizedThreadStart(detect_collision)))
-                    colthreads[-1].Start(str(idx) + '\t' + roia + '\t' + roib)
+                    if platform.python_implementation()=="IronPython":
+                        colthreads[-1].Start(str(idx) + '\t' + roia + '\t' + roib)
+                    else:
+                        colthreads[-1].start(str(idx) + '\t' + roia + '\t' + roib)
                 else:
                     for label in aform.reports[idx]:
                         label.Text = ''
@@ -1074,9 +1101,14 @@ def await_col_report(arg):
                 arg.tboxC.Text = str(couch_angle)
                 arg.transform()
                 if 'colthreads' in globals():
-                    while any([th.IsAlive for th in colthreads]):
-                        print([th.IsAlive for th in colthreads])
-                        Thread.SpinWait(100000)# Thread.Sleep seems not to be available in this NET version
+                    if platform.python_implementation()=="IronPython":
+                        while any([th.IsAlive for th in colthreads]):
+                            print([th.IsAlive for th in colthreads])
+                            Thread.SpinWait(100000)# Thread.Sleep seems not to be available in this NET version
+                    else:
+                        while any([th.is_alive() for th in colthreads]):
+                            print([th.is_alive() for th in colthreads])
+                            Thread.SpinWait(100000)# Thread.Sleep seems not to be available in this NET version
                     await_user_input('Collision report is ready for beam "' + beam.Description + '", gantry angle '+str(sgangle)+'. Click OK to verify 3D geometry. Then click on Play Script to continue')
     except ThreadInterruptedException:
         print('Beamset interrupted')
@@ -1239,7 +1271,7 @@ def main():
 
     # Select first which treatment head to use
     global linac
-    if linacs.has_key(machineName):
+    if machineName in linacs:
         # Select it based on treatment plan info
         linac = linacs[machineName]
     else:
@@ -1254,7 +1286,7 @@ def main():
 
     # Select now which couch to use
     global couch
-    if couches.has_key(couchName):
+    if couchName in couches:
         # Select it based on treatment plan info
         couch = couches[couchName]
     else:
@@ -1444,14 +1476,19 @@ def main():
 
     # Check the maximum number of threads (roiA : roiB combinations) to allow for collision detection
     global maxColThreads
-    maxColThreads = ProcessorCount - 2  # 1 for GUI, 1 for TuneForm
+    if platform.python_implementation() == 'IronPython':
+        from System.Environment import ProcessorCount
+        maxColThreads = ProcessorCount - 2  # 1 for GUI, 1 for TuneForm
+    else:
+        import multiprocessing
+        maxColThreads = multiprocessing.cpu_count() - 2  # 1 for GUI, 1 for TuneForm
     maxColThreads = min(maxColThreads, 6)  # Do not use more than 6 threads
     maxColThreads = max(maxColThreads, 1)  # Use at least 1 thread
 
     # Tuning form thread
-    thread = Thread(ThreadStart(tune_models))
-    thread.Start()
-    thread.Join()
+    tune_thread = Thread(ThreadStart(tune_models))
+    tune_thread.Start()
+    tune_thread.Join()
 
 
 if __name__ == '__main__':

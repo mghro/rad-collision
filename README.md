@@ -7,7 +7,7 @@ It loads a 3D model (STL file) of a LINAC and/or couch into a 3D window, that ca
 
 The (currently available) interface layers of the RadCollision platform are:
 * <a href="https://github.com/SlicerRt/SlicerRT">SlicerRT</a> (C++) -- full integration into <a href="http://perk.cs.queensu.ca/sites/perkd7.cs.queensu.ca/files/Suriyakumar2017a.pdf">open-source TPS</a>
-* <a href="RayStation">RayStation</a> (IronPython) -- full integration into proprietary TPS
+* <a href="RayStation">RayStation</a> (IronPython2.7/CPython3.6) -- full integration into proprietary TPS
 * <a href="Python3">Python 3</a> -- independent of TPS
 * <a href="https://github.com/jlhue/rad-collision-matlab/">MATLAB</a> -- independent of TPS
 
