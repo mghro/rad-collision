@@ -714,10 +714,7 @@ class TuneModelsForm(Form):
                     if beamthread.is_alive() and not beamthread.join(100):
                         beamthread.Abort()
         beamthread = Thread(ParameterizedThreadStart(await_col_report))
-        if platform.python_implementation() == 'IronPython':
-            beamthread.Start(self)
-        else:
-            beamthread.start(self)
+        beamthread.Start(self)
 
 
     def transform(self):
@@ -1049,10 +1046,7 @@ def transform_models():
                 roia, roib, enable = colpair.split('\t')
                 if roia in roi_lst and roib in roi_lst and int(enable) != 0:
                     colthreads.append(Thread(ParameterizedThreadStart(detect_collision)))
-                    if platform.python_implementation()=="IronPython":
-                        colthreads[-1].Start(str(idx) + '\t' + roia + '\t' + roib)
-                    else:
-                        colthreads[-1].start(str(idx) + '\t' + roia + '\t' + roib)
+                    colthreads[-1].Start(str(idx) + '\t' + roia + '\t' + roib)
                 else:
                     for label in aform.reports[idx]:
                         label.Text = ''
