@@ -1,6 +1,6 @@
 [//]: # (RadCollision-RayStation)
 
-This folder contains one flavor (or interface layer) of RadCollision. It supports both IronPython 2.7 as well as CPython 3.6, the latter being the only option starting from RayStation version 12B. For other languages, consult https://github.com/mghro/rad-collision
+This folder contains one flavor (or interface layer) of RadCollision. It supports both IronPython 2.7 as well as CPython 2.7 and 3.6, the latter being the only option starting from RayStation version 12B. For other languages, consult https://github.com/mghro/rad-collision
 
 Licensing
 ---------
