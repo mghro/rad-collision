@@ -6,7 +6,7 @@ RadCollision is an open-source platform designed to aid treatment planners in th
 It loads a 3D model (STL file) of a LINAC and/or couch into a 3D window, that can be rotated interactively to assess collision risk. One can also load a 3D scan of the patient done e.g. with a smartphone, if full patient geometry is needed.
 
 The (currently available) interface layers of the RadCollision platform are:
-* <a href="https://github.com/SlicerRt/SlicerRT">SlicerRT</a> (C++) -- full integration into <a href="https://labs.cs.queensu.ca/perklab/wp-content/uploads/sites/3/2024/02/Suriyakumar2017a.pdf">open-source TPS</a>
+* <a href="https://github.com/SlicerRt/SlicerRT">SlicerRT</a> (C++) -- full integration into <a href="https://labs.cs.queensu.ca/perklab/wp-content/uploads/sites/3/2024/02/Suriyakumar2017a.pdf">open-source TPS</a>, see also [3D STL repository](https://github.com/SlicerRt/TreatmentMachines).
 * <a href="RayStation">RayStation</a> (IronPython2.7/CPython2.7/CPython3.6) -- full integration into proprietary TPS
 * <a href="Python3">Python 3</a> -- independent of TPS
 * <a href="https://github.com/jlhue/rad-collision-matlab/">MATLAB</a> -- independent of TPS
