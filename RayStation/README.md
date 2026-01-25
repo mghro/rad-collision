@@ -2,6 +2,8 @@
 
 This folder contains one flavor (or interface layer) of RadCollision. It supports both IronPython 2.7 as well as CPython 2.7 and 3.6, the latter being the only option starting from RayStation version 12B. For other languages, consult https://github.com/mghro/rad-collision
 
+In the meantime, RaySearch Laboratories incorporated some proprietary to-pay plugins for native collision detection within RayStation such as [IDCAS](https://www.raysearchlabs.com/siteassets/raystation-landing-page/safety-and-performance-rs/rs-and-rp-11a/raystation-11a-combination-with-idcas-modules-instructions-for-use.pdf).
+
 Licensing
 ---------
 
